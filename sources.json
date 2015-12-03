@@ -1,0 +1,9 @@
+[{
+  "feature_service": "http://insidemapservices.nps.gov/arcgis/rest/services/Buildings/NPSBuildingsMapIMR/FeatureServer/",
+  "source_system": "Intermountain Region GIS",
+  "source_system_key": "GeometryID",
+  "theme": "buildings",
+  "type": "arcgisserver",
+  "unit_code": "grsa",
+  "unit_code_key": "Unit_Code"
+}]

@@ -1,0 +1,28 @@
+{
+  "name": "places-sync",
+  "version": "0.0.1",
+  "description": "A node app that synchronizes data from multiple sources to the Places database.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nate Irwin",
+  "license": "Public Domain",
+  "dependencies": {
+    "dat": "^7.1.2",
+    "dat-core": "^6.0.2",
+    "http": "0.0.0",
+    "jsonstream": "^1.0.3",
+    "ldjson-stream": "^1.2.1",
+    "request": "^2.61.0",
+    "terraformer-arcgis-parser": "^1.0.4",
+    "through2": "^2.0.0",
+    "util": "^0.10.3"
+  },
+  "dat": {
+    "name": "NA",
+    "description": "NA",
+    "publisher": "NA"
+  },
+  "publisher": "NA"
+}
