@@ -1,0 +1,16 @@
+{
+  "database": {
+    "sync_db": {
+      "connection": "{{env.PWD}}/sync.sqlite3",
+      "type": "sqlite"
+    },
+    "defaults": {
+      "rootDirectory": "{{env.PWD}}/sql",
+      "delimiter": ";",
+      "fileDesignator": "file:///",
+      "fileOptions": {
+        "encoding": "utf8"
+      }
+    }
+  }
+}
