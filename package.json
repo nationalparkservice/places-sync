@@ -24,6 +24,7 @@
     "atob": "2.0.0",
     "btoa": "1.1.2",
     "datawrap": "git+https://github.com/jimmyrocks/datawrap#master",
+    "lz-string": "1.4.4",
     "tape": "4.3.0"
   }
 }
