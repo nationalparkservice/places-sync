@@ -44,6 +44,11 @@ module.exports = function(task) {
   // Done
 };
 
+var checkLock(source) {
+  // Runs a query on the sqlite database to see if it is locked
+  // returns true if locked, else false
+}
+
 var readSource(source) {
   // Open Database Connection
   // Run the SELECT Query
