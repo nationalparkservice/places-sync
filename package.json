@@ -1,30 +1,31 @@
 {
-  "name": "places-sync",
-  "version": "0.0.1",
+  "contributors": [{
+    "name": "Jim McAndrew",
+    "email": "james_mcandrew@partner.nps.gov"
+  }, {
+    "name": "Nate Irwin",
+    "email": "nate_irwin@nps.gov"
+  }],
+  "dependencies": {
+    "atob": "2.0.0",
+    "btoa": "1.1.2",
+    "datawrap": "git+https://github.com/jimmyrocks/datawrap#sqlite",
+    "lz-string": "1.4.4",
+    "tape": "4.3.0"
+  },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",
+  "keywords": ["nps", "postgres", "cartodb"],
+  "author": "Jim McAndrew <james_mcandrew@partner.nps.gov>",
+  "license": "Public Domain",
   "main": "app.js",
+  "name": "places-sync",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/nationalparkservice/places-sync"
+  },
   "scripts": {
+    "start": "node app",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Nate Irwin",
-  "license": "Public Domain",
-  "dependencies": {
-    "dat": "^7.1.2",
-    "dat-core": "^6.0.2",
-    "http": "0.0.0",
-    "jsonparse": "^1.2.0",
-    "jsonstream": "^1.0.3",
-    "ldjson-stream": "^1.2.1",
-    "request": "^2.61.0",
-    "stream-json": "^0.4.0",
-    "terraformer-arcgis-parser": "^1.0.4",
-    "through2": "^2.0.0",
-    "util": "^0.10.3"
-  },
-  "dat": {
-    "name": "NA",
-    "description": "NA",
-    "publisher": "NA"
-  },
-  "publisher": "NA"
+  "version": "0.0.1"
 }
