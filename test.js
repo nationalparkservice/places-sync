@@ -26,7 +26,7 @@ var addTask = function (taskName) {
 var createDummyData = function (tableName, dataTable) {
   var replaceObj = dataTable || [];
   var rows = typeof dataTable === 'number' ? dataTable : typeof dataTable === 'object' ? dataTable.length : 0;
-  var fields = typeof dataTable === 'object' ? Object.keys(dataTable[0]).length : Math.floor(Math.random() * 16) + 3;
+  var fields = 5; //typeof dataTable === 'object' ? Object.keys(dataTable[0]).length : Math.floor(Math.random() * 16) + 3;
   var getFieldNames = function (d) {
     var returnValue = [];
     for (var field in d[0]) {
@@ -54,4 +54,10 @@ var createDummyData = function (tableName, dataTable) {
     replaceObj[k].currentTime = currentTime;
   // Somehow run these
   }
+};
+
+var runCompare = function (sourceA, sourceB, taskName) {
+  var readData = function(source) {
+    var sql = 'SELECT id, field0, field1, field2, field3, field4 FROM {{tableName}};';
+  };
 };
