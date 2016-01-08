@@ -12,11 +12,11 @@ var t = function (sql) {
 };
 
 var testDB = [
-  'CREATE TABLE tbl1(one VARCHAR(10), two SMALLINT);',
-  "INSERT INTO tbl1 VALUES('hello!',10);",
-  "INSERT INTO tbl1 VALUES('goodbye', 20);",
-  'SELECT * FROM tbl1;',
-  'DROP TABLE tbl1;'
+  'CREATE TABLE sourcea (one VARCHAR(10), two SMALLINT);',
+  "INSERT INTO  sourcea VALUES('hello!',10);",
+  "INSERT INTO sourcea VALUES('goodbye', 20);",
+  'SELECT * FROM sourcea ;',
+  'DROP TABLE sourcea ;'
 ];
 
 t(testDB);
