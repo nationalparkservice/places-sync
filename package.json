@@ -11,7 +11,7 @@
     "btoa": "1.1.2",
     "datawrap": "git+https://github.com/jimmyrocks/datawrap#sqlite",
     "lz-string": "1.4.4",
-    "tape": "4.3.0"
+    "tape": "4.4.0"
   },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",
   "keywords": ["nps", "postgres", "cartodb"],
