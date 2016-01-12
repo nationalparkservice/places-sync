@@ -4,7 +4,9 @@ var fandlebars = datawrap.fandlebars;
 var defaults = datawrap.fandlebars.obj(datawrapDefaults, global.process);
 var guid = require('./src/guid');
 var md5 = require('./src/md5');
-var guids = ['','','','',''].map(function(){return guid();});
+var guids = ['', '', '', '', ''].map(function () {
+  return guid();
+});
 
 var datasets = {
   sourceA: [
@@ -32,18 +34,17 @@ var commands = {
   'createB': 'CREATE TABLE sourceB (id text, task_name text, last_update numeric, removed numeric, hash text);',
   'createC': 'CREATE TABLE sourceC (id text, task_name text, last_update numeric, removed numeric, hash text);',
   // Basic inserts
-  'insertA': "INSERT INTO sourceA (id, task_name, last_update, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}'), '{{4}}';",
-  'insertB': "INSERT INTO sourceB (id, task_name, last_update, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}'), '{{4}}';",
-  'insertC': "INSERT INTO sourceC (id, task_name, last_update, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}'), '{{4}}';",
+  'insertA': "INSERT INTO sourceA (id, task_name, last_update, removed, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}', '{{4}}');",
+  'insertB': "INSERT INTO sourceB (id, task_name, last_update, removed, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}', '{{4}}');",
+  'insertC': "INSERT INTO sourceC (id, task_name, last_update, removed, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}', '{{4}}');",
   // New ids (in A or B, not in C)
-  'findNewFromA': "SELECT source.id FROM sourceA source LEFT OUTER JOIN sourceC master ON source.id = master.id AND source.task_name = master.task_name WHERE source.task_name = 'test' AND master.id IS NULL;",
-  'findNewFromB': "SELECT source.id FROM sourceB source LEFT OUTER JOIN sourceC master ON source.id = master.id AND source.task_name = master.task_name WHERE source.task_name = 'test' AND master.id IS NULL;",
-  // Updated ids
-  'findRemoved': 'SELECT master.id FROM sourceC master LEFT OUTER JOIN sourceB b ON a.id = b.id WHERE a.hash != b.hash;',
+  'findNew': 'file:///findCreated.sql',
+  // Updated ids (a delete is treated as an update)
+  'findUpdated': 'file:///findUpdated.sql',
+  // Conflicting ids
+  'findConflicts': 'file:///findConflicts.sql',
+  'close': 'close'
 };
-
-
-
 
 var row = 0;
 var sql = [
@@ -60,22 +61,59 @@ for (row = 0; row < datasets.sourceB.length; row++) {
 
 // Set up a db in memory for this
 var db = datawrap({
-  'type': 'sqlite'
+  'type': 'sqlite',
+  'name': 'quickTest'
 }, defaults);
 
-
 var re = new RegExp('(CREATE|INSERT).+?(source.).+', 'g');
-var taskList = sql.map(function (statement, i) {
-  return {
-    'name': statement.replace(re, '$1_$2'),
-    'task': db.runQuery,
-    'params': [statement]
-  };
+var taskList = [{
+  'name': 'Create Database',
+  'task': db.runQuery,
+  'params': [
+    [commands.createA, commands.createB, commands.createC]
+  ]
+}, {
+  'name': 'Create Database',
+  'task': db.runQuery,
+  'params': function () {
+    var sql = [];
+    for (row = 0; row < datasets.sourceA.length; row++) {
+      sql.push(fandlebars(commands.insertA, datasets.sourceA[row]));
+    }
+    for (row = 0; row < datasets.sourceB.length; row++) {
+      sql.push(fandlebars(commands.insertB, datasets.sourceB[row]));
+    }
+    return [sql];
+  }()
+}];
+
+taskList.push({
+  'name': 'Find New',
+  'task': db.runQuery,
+  'params': commands.findNew
 });
+
+taskList.push({
+  'name': 'Find New',
+  'task': db.runQuery,
+  'params': commands.close
+});
+
+datawrap.runList(taskList, 'Main Task')
+  .then(function (a) {
+    console.log(JSON.stringify(a[a.length - 1]));
+    console.log('success');
+  }).catch(function (e) {
+    console.log(e);
+    console.log(e.stack);
+    console.log('failure');
+    throw e;
+});
+
+/*
 db.runQuery(sql)
   .then(function (a) {
     console.log(JSON.stringify(a[a.length - 1]));
   }).catch(function (e) {
-    throw e;
-  });
-
+  throw e;
+});*/
