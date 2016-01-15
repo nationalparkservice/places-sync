@@ -10,33 +10,27 @@ var guids = ['', '', '', '', ''].map(function () {
 
 var datasets = {
   sourceA: [
-    [guids['0'], 'quickTest', '0', '0', md5('test0')],
-    [guids['1'], 'quickTest', '0', '0', md5('test1')],
-    [guids['2'], 'quickTest', '0', '0', md5('test2')],
-    [guids['3'], 'quickTest', '0', '0', md5('test3')],
-    [guids['4'], 'quickTest', '0', '0', md5('test4')],
-    [guids['5'], 'quickTest', '0', '0', md5('test5')]
+    [guids['0'], 'quickTest', 'sourceA', md5('test1'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceA', md5('test2'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceA', md5('test3'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceA', md5('test4'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceA', md5('test5'), '0', '0']
   ],
   sourceB: [
-    [guids['0'], 'quickTest', '1', '0', md5('test0')],
-    [guids['1'], 'quickTest', '1', '0', md5('test1')],
-    [guids['2'], 'quickTest', '1', '0', md5('test2')],
-    [guids['3'], 'quickTest', '1', '0', md5('test3')],
-    [guids['4'], 'quickTest', '1', '0', md5('test4')],
-    [guids['5'], 'quickTest', '1', '0', md5('test6')] // this one is different!
+    [guids['0'], 'quickTest', 'sourceB', md5('test1'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceB', md5('test2'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceB', md5('test3'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceB', md5('test4'), '0', '0'],
+    [guids['0'], 'quickTest', 'sourceB', md5('test5'), '0', '0']
   ]
 };
 
 // Add these sources to sqlite
 var commands = {
   // Create the compare tables
-  'createA': 'CREATE TABLE sourceA (id text, task_name text, last_update numeric, removed numeric, hash text);',
-  'createB': 'CREATE TABLE sourceB (id text, task_name text, last_update numeric, removed numeric, hash text);',
-  'createC': 'CREATE TABLE sourceC (id text, task_name text, last_update numeric, removed numeric, hash text);',
+  'create': 'file:///makeTables.sql',
   // Basic inserts
-  'insertA': "INSERT INTO sourceA (id, task_name, last_update, removed, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}', '{{4}}');",
-  'insertB': "INSERT INTO sourceB (id, task_name, last_update, removed, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}', '{{4}}');",
-  'insertC': "INSERT INTO sourceC (id, task_name, last_update, removed, hash) VALUES ('{{0}}', '{{1}}', '{{2}}', '{{3}}', '{{4}}');",
+  'insert': 'file:///insertData.sql',
   // New ids (in A or B, not in C)
   'findNew': 'file:///findCreated.sql',
   // Updated ids (a delete is treated as an update)
@@ -48,15 +42,14 @@ var commands = {
 
 var row = 0;
 var sql = [
-  commands.createA,
-  commands.createB,
-  commands.createC
+  commands.create
 ];
+
 for (row = 0; row < datasets.sourceA.length; row++) {
-  sql.push(fandlebars(commands.insertA, datasets.sourceA[row]));
+  sql.push(fandlebars(commands.insert, datasets.sourceA[row]));
 }
 for (row = 0; row < datasets.sourceB.length; row++) {
-  sql.push(fandlebars(commands.insertB, datasets.sourceB[row]));
+  sql.push(fandlebars(commands.insert, datasets.sourceB[row]));
 }
 
 // Set up a db in memory for this
