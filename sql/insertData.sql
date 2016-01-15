@@ -1,4 +1,4 @@
-INSERT INTO public.master (
+INSERT INTO master (
   key,
   process,
   source,
