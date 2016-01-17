@@ -6,10 +6,10 @@ INSERT INTO master (
   last_update,
   removed
 ) VALUES (
-  '{{key}}',
-  '{{process}}',
-  '{{source}}',
-  '{{hash}}',
-  '{{last_update}}',
-  '{{removed}}'
+  {{key}},
+  {{process}},
+  {{source}},
+  {{hash}},
+  {{last_update}},
+  {{removed}}
 );

@@ -11,17 +11,17 @@ var guids = ['', '', '', '', ''].map(function () {
 var datasets = {
   sourceA: [
     [guids['0'], 'quickTest', 'sourceA', md5('test1'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceA', md5('test2'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceA', md5('test3'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceA', md5('test4'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceA', md5('test5'), '0', '0']
+    [guids['1'], 'quickTest', 'sourceA', md5('test2'), '0', '0'],
+    [guids['2'], 'quickTest', 'sourceA', md5('test3'), '0', '0'],
+    [guids['3'], 'quickTest', 'sourceA', md5('test4'), '0', '0'],
+    [guids['4'], 'quickTest', 'sourceA', md5('test5'), '0', '0']
   ],
   sourceB: [
     [guids['0'], 'quickTest', 'sourceB', md5('test1'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceB', md5('test2'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceB', md5('test3'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceB', md5('test4'), '0', '0'],
-    [guids['0'], 'quickTest', 'sourceB', md5('test5'), '0', '0']
+    [guids['1'], 'quickTest', 'sourceB', md5('test2'), '0', '0'],
+    [guids['2'], 'quickTest', 'sourceB', md5('test3'), '0', '0'],
+    [guids['3'], 'quickTest', 'sourceB', md5('test4'), '0', '0'],
+    [guids['4'], 'quickTest', 'sourceB', md5('test5'), '0', '0']
   ],
   columns: [
     'key', 'process', 'source', 'hash', 'last_update', 'removed'
@@ -40,7 +40,9 @@ var commands = {
   'findUpdated': 'file:///findUpdated.sql',
   // Conflicting ids
   'findConflicts': 'file:///findConflicts.sql',
-  'close': 'close'
+  'close': ['', [], {
+    'close': true
+  }]
 };
 
 var addTitles = function (titles, data) {
@@ -57,7 +59,6 @@ var db = datawrap({
   'name': 'quickTest'
 }, defaults);
 
-var re = new RegExp('(CREATE|INSERT).+?(source.).+', 'g');
 var taskList = [{
   'name': 'Create Database',
   'task': db.runQuery,
@@ -65,26 +66,26 @@ var taskList = [{
     commands.create, {}
   ]
 }, {
-  'name': 'Create Database',
+  'name': 'Insert Source A',
   'task': db.runQuery,
-  'params': function () {
-    var row = 0;
-    var sql = [];
-    for (row = 0; row < datasets.sourceA.length; row++) {
-      sql.push(fandlebars(commands.insert, addTitles(datasets.columns, datasets.sourceA[row])));
+  'params': [commands.insert,
+    datasets.sourceA.map(function (row) {
+      return addTitles(datasets.columns, row);
+    }), {
+      'paramList': true
     }
-    for (row = 0; row < datasets.sourceB.length; row++) {
-      sql.push(fandlebars(commands.insert, addTitles(datasets.columns, datasets.sourceB[row])));
+  ]
+},{
+  'name': 'Insert Source B',
+  'task': db.runQuery,
+  'params': [commands.insert,
+    datasets.sourceB.map(function (row) {
+      return addTitles(datasets.columns, row);
+    }), {
+      'paramList': true
     }
-    return sql;
-  }()
+  ]
 }];
-
-// taskList.push({
-// 'name': 'Find New',
-// 'task': db.runQuery,
-// 'params': commands.findNew
-// });
 
 taskList.push({
   'name': 'Find New',
@@ -99,7 +100,7 @@ datawrap.runList(taskList, 'Main Task')
   }).catch(function (e) {
     console.error(readOutput(e));
     console.log('failure');
-    throw e;
+    throw e[e.length - 1];
   });
 
 var readOutput = function (output) {
@@ -107,11 +108,3 @@ var readOutput = function (output) {
     return o.toString() + (o.toString().substr(0, 5) === 'Error' ? '\\n' + o.stack : '');
   }), null, 2).replace(/\\n/g, '\n');
 };
-
-/*
-db.runQuery(sql)
-  .then(function (a) {
-    console.log(JSON.stringify(a[a.length - 1]));
-  }).catch(function (e) {
-  throw e;
-});*/
