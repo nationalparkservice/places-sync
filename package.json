@@ -9,6 +9,7 @@
   "dependencies": {
     "atob": "2.0.0",
     "btoa": "1.1.2",
+    "csv": "0.4.6",
     "datawrap": "git+https://github.com/jimmyrocks/datawrap#sqlite",
     "lz-string": "1.4.4",
     "tape": "4.4.0"
