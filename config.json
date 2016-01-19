@@ -1,5 +1,9 @@
 {
   "database": {
+    "test_db": {
+      "connection": "{{env.PWD}}/test.sqlite3",
+      "type": "sqlite"
+    },
     "sync_db": {
       "connection": "{{env.PWD}}/sync.sqlite3",
       "type": "sqlite"
