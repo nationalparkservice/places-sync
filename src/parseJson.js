@@ -45,8 +45,8 @@ var decode = function (b) {
     'compressToB',
     'compress',
     'compressToBase64',
-    'compressToEncodedURIComponent'
-    // 'compressToUTF16'
+    'compressToEncodedURIComponent',
+    'compressToUTF16'
   ];
   for (var i = 0; i < tests.length; i++) {
     try {
