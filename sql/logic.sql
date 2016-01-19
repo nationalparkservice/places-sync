@@ -3,7 +3,7 @@
 --   !A,B,!C a=*,b=*,c=* then IA,XB,IC
 --   A,B,!C a=b,b=a,c=* then XA,XB,IC
 --
---   a UNION is reqiured because sqlite doesn't support a full outer join
+--   a UNION is required because sqlite doesn't support a full outer join
 --   the second UNION could be eliminated, but is kept for clarity
 --
   SELECT
