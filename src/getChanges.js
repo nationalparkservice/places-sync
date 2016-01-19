@@ -1,4 +1,4 @@
-module.exports = function (newJsonA, newJsonB, origJson) {
+module.exports = function (sourceA, sourceB, originalSource) {
   var fields = {};
   var field;
   var conflicts = [];
@@ -8,34 +8,34 @@ module.exports = function (newJsonA, newJsonB, origJson) {
     return JSON.stringify(a) === JSON.stringify(b);
   };
 
-  for (field in newJsonA) {
+  for (field in sourceA) {
     fields[field] = fields[field] || {};
-    fields[field].newJsonA = newJsonA[field];
+    fields[field].sourceA = sourceA[field];
   }
-  for (field in newJsonB) {
+  for (field in sourceB) {
     fields[field] = fields[field] || {};
-    fields[field].newJsonB = newJsonB[field];
+    fields[field].sourceB = sourceB[field];
   }
-  for (field in origJson) {
+  for (field in originalSource) {
     fields[field] = fields[field] || {};
-    fields[field].origJson = origJson[field];
+    fields[field].originalSource = originalSource[field];
   }
   for (field in fields) {
     currentField = fields[field];
 
     // If A and B are the same, then we know that's the new value, no need to check the original
-    if (compare(currentField.newJsonA, currentField.newJsonB)) {
-      newValues[field] = currentField.newJsonA;
-    } else if (compare(currentField.newJsonA, currentField.origJson)) {
+    if (compare(currentField.sourceA, currentField.sourceB)) {
+      newValues[field] = currentField.sourceA;
+    } else if (compare(currentField.sourceA, currentField.originalSource)) {
       // JsonA is the same as the orig, so we should use the value from JsonB
-      newValues[field] = currentField.newJsonB;
-    } else if (compare(currentField.newJsonB, currentField.origJson)) {
+      newValues[field] = currentField.sourceB;
+    } else if (compare(currentField.sourceB, currentField.originalSource)) {
       // JsonB is the same as the orig, so we should use the value from JsonA
-      newValues[field] = currentField.newJsonA;
+      newValues[field] = currentField.sourceA;
     } else {
       // This would mean that A, B, and Orig are different
       conflicts.push(field);
-      newValues[field] = currentField.newJsonA;
+      newValues[field] = currentField.sourceA;
     }
   }
   return {
