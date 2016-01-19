@@ -12,9 +12,9 @@ var datawrap = require('datawrap');
 var connection = {
   'type': 'sqlite',
   'data': {
-    'test': 'file:///test.csv',
-    'test2': 'file:///test2.csv',
-    'test3': 'file:///test3.csv'
+    'test': 'file:///csvDbtest.csv',
+    'test2': 'file:///csvDbtest2.csv',
+    'test3': 'file:///csvDbtest3.csv'
   },
   'name': 'csvTest'
 };
