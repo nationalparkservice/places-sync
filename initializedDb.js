@@ -1,22 +1,29 @@
 var config = require('./config');
+var tools = require('./src/tools');
 var datawrap = require('datawrap');
 config = datawrap.fandlebars.obj(config, global.process);
-
 var syncDb = datawrap(config.database.sync_db, config.database.defaults);
 
-var t = function (sql) {
-  syncDb.runQuery(sql)
-    .then(function (e, r) {
-      console.log(e, r);
-    });
-};
+var checkTable = "SELECT name FROM sqlite_master WHERE type='table' AND name='master';";
+var createTable = 'file:///makeTable.sql';
+// var dropTable = 'DROP TABLE master;';
 
-var testDB = [
-  'CREATE TABLE sourcea (one VARCHAR(10), two SMALLINT);',
-  "INSERT INTO  sourcea VALUES('hello!',10);",
-  "INSERT INTO sourcea VALUES('goodbye', 20);",
-  'SELECT * FROM sourcea ;',
-  'DROP TABLE sourcea ;'
-];
-
-t(testDB);
+syncDb.runQuery(checkTable)
+  .then(function (r) {
+    // console.log(r[0][0]);
+    if (!r[0][0]) {
+      syncDb.runQuery(createTable)
+        .then(function (res) {
+          console.log('Table Created!');
+        })
+        .catch(function (err) {
+          console.error(tools.readOutput(err));
+          throw (err[err.length - 1]);
+        });
+    } else {
+      console.log('Table Already Initialized');
+    }
+  }).catch(function (e) {
+    console.error(tools.readOutput(e));
+    throw (e[e.length - 1]);
+  });
