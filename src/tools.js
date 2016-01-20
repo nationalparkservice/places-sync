@@ -18,10 +18,10 @@ var tools = module.exports = {
     });
     return returnValue;
   },
-  getType: function (value, maxType) {
+  getType: function (value, maxType, dataType) {
     var type = 'text';
     value = value.toString();
-    if (!(isNaN(value) || value.replace(/ /g, '').length < 1) && maxType !== 'text') {
+    if (!(isNaN(value) || value.replace(/ /g, '').length < 1) && maxType !== 'text' && dataType !== 'string') {
       type = 'float';
       if (parseFloat(value, 10) === parseInt(value, 10) && maxType !== 'float') {
         type = 'integer';
