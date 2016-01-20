@@ -4,7 +4,6 @@ var test = module.exports = function (connection) {
   var importSource = function (process, source) {
     return new datawrap.Bluebird(function (fulfill, reject) {
       var fromDate = 0;
-      // TODO there will need to be a tool that makes a source from a database and table
       source.getHashedData(fromDate)
         .then(function (hashedData) {
           var insertData = hashedData.map(function (row) {
