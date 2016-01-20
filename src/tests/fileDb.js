@@ -3,10 +3,10 @@ var defaults = {
   'fileOptions': {
     'encoding': 'utf8'
   },
-  'csvDirectory': __dirname + '/csv',
+  'dataDirectory': __dirname + '/data',
   'rootDirectory': __dirname
 };
-var csvDb = require('../csvDb');
+var fileDb = require('../fileDb');
 var tools = require('../tools');
 var datawrap = require('datawrap');
 var connection = {
@@ -14,8 +14,10 @@ var connection = {
   'data': {
     'test': 'file:///csvDbtest.csv',
     'test2': 'file:///csvDbtest2.csv',
-    'test3': 'file:///csvDbtest3.csv'
+    'test3': 'file:///csvDbtest3.csv',
+    'jsonTest': 'file:///jsonDbtest.json'
   },
+  'format': 'csv',
   'name': 'csvTest'
 };
 var db = datawrap(connection);
@@ -39,7 +41,7 @@ tape('Check Tables', function (t) {
     t.end();
     throw e[e.length - 1];
   };
-  csvDb(connection, defaults).then(function (a) {
+  fileDb(connection, defaults).then(function (a) {
     // If it goes in ok, make sure it's correct
     var taskList = tableNames.map(function (tableName) {
       return {
@@ -51,7 +53,7 @@ tape('Check Tables', function (t) {
     tableNames.forEach(function (tableName) {
       taskList.push({
         'name': 'Check ' + tableName,
-        'task': compareCsv,
+        'task': tableName.substr(0,4) === 'json' ? compareJson : compareCsv,
         'params': [tableName, '{{Read ' + tableName + '}}', t]
       });
     });
@@ -70,10 +72,21 @@ tape('Check Tables', function (t) {
       .catch(reportError);
   }).catch(reportError);
 });
-
+var compareJson = function (tableName, data, t) {
+  return new datawrap.Bluebird(function (fulfill, reject) {
+    var jsonFilePath = connection.data[tableName].replace(defaults.fileDesignator, defaults.dataDirectory + '/');
+    fs.readFileAsync(jsonFilePath).then(function (fileData) {
+      fileData = JSON.parse(fileData);
+      fileData.forEach(function (row, rowIndex) {
+        t.deepEqual(data[0][rowIndex], row);
+      });
+      fulfill([]);
+    }).catch(reject);
+  });
+};
 var compareCsv = function (tableName, data, t) {
   return new datawrap.Bluebird(function (fulfill, reject) {
-    var csvFilePath = connection.data[tableName].replace(defaults.fileDesignator, defaults.csvDirectory + '/');
+    var csvFilePath = connection.data[tableName].replace(defaults.fileDesignator, defaults.dataDirectory + '/');
     fs.readFileAsync(csvFilePath).then(function (fileData) {
       csv.parse(fileData, function (e, r) {
         var columns = [];
