@@ -30,7 +30,7 @@ module.exports = function (config, defaults, options) {
         });
         datawrap.runList(taskList)
           .then(function (r) {
-            fulfill(r);
+            fulfill({result: r, database: db});
           }).catch(function (e) {
             reject(e);
           });
