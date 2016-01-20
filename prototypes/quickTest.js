@@ -1,9 +1,8 @@
 var datawrap = require('datawrap');
-var datawrapDefaults = require('./defaults');
-var fandlebars = datawrap.fandlebars;
+var datawrapDefaults = require('../defaults');
 var defaults = datawrap.fandlebars.obj(datawrapDefaults, global.process);
-var guid = require('./src/guid');
-var md5 = require('./src/md5');
+var guid = require('../src/guid');
+var md5 = require('../src/md5');
 var guids = ['', '', '', '', ''].map(function () {
   return guid();
 });
@@ -31,7 +30,7 @@ var datasets = {
 // Add these sources to sqlite
 var commands = {
   // Create the compare tables
-  'create': 'file:///makeTables.sql',
+  'create': 'file:///makeTable.sql',
   // Basic inserts
   'insert': 'file:///insertData.sql',
   // New ids (in A or B, not in C)
@@ -40,7 +39,7 @@ var commands = {
   'findUpdated': 'file:///findUpdated.sql',
   // Conflicting ids
   'findConflicts': 'file:///findConflicts.sql',
-  'close': ['', [], {
+  'close': [null, null, {
     'close': true
   }]
 };
@@ -75,7 +74,7 @@ var taskList = [{
       'paramList': true
     }
   ]
-},{
+}, {
   'name': 'Insert Source B',
   'task': db.runQuery,
   'params': [commands.insert,

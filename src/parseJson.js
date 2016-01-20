@@ -45,27 +45,19 @@ var decode = function (b) {
     'compressToB',
     'compress',
     'compressToBase64',
-    'compressToEncodedURIComponent'
-    // 'compressToUTF16'
+    'compressToEncodedURIComponent',
+    'compressToUTF16'
   ];
   for (var i = 0; i < tests.length; i++) {
     try {
       newObj = lzstring['de' + tests[i].replace('To', 'From')](b);
-      console.log('vvvvv');
-      console.log('b', b);
-      console.log('newObj', newObj);
-      console.log(tests[i], lzstring[tests[i]](newObj));
-      console.log(b, '===', lzstring[tests[i]](newObj), ':', b === lzstring[tests[i]](newObj));
-      console.log('^^^^^');
       if (b === lzstring[tests[i]](newObj)) {
         err = undefined;
-        console.log('we got it!', b, '===', newObj);
       } else {
         newObj = undefined;
         err = 'Cannot decode string';
       }
     } catch (e) {
-      console.log('error', e);
       err = e;
     }
 
