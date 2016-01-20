@@ -1,7 +1,8 @@
 var datawrap = require('datawrap');
 var fs = datawrap.Bluebird.promisifyAll(require('fs'));
-var csv = require('csv');
-var tools = require('./tools');
+var createTable = require('./createTable');
+var csvToTable = require('./csvToTable');
+var jsonToTable = require('./jsonToTable');
 
 module.exports = function (config, defaults, options) {
   return new datawrap.Bluebird(function (fulfill, reject) {
@@ -14,38 +15,42 @@ module.exports = function (config, defaults, options) {
 
     var regex = new RegExp('^' + (options.fileDesignator || config.fileDesignator || defaults.fileDesignator));
     var fileOptions = options.fileOptions || config.fileOptions || defaults.fileOptions;
-    var csvDirectory = (options.csvDirectory || config.csvDirectory || defaults.csvDirectory);
-    csvDirectory = csvDirectory + (csvDirectory.substr(-1) === '/' ? '' : '/');
+    var dataDirectory = (options.dataDirectory || config.dataDirectory || defaults.dataDirectory);
+    dataDirectory = dataDirectory + (dataDirectory.substr(-1) === '/' ? '' : '/');
     var inData = config.data;
 
-    getData(inData, csvDirectory, fileOptions, regex)
+    getData(inData, dataDirectory, fileOptions, regex)
       .then(function (d) {
         // Go through the data and add it to the database
         var taskList = d.map(function (table) {
           return {
             'name': 'Create ' + table.name,
-            'task': createSqlDatabase,
+            'task': createTable,
             'params': [table.name, table.columns, table.data, db]
           };
         });
         datawrap.runList(taskList)
           .then(function (r) {
-            fulfill({result: r, database: db});
+            fulfill({
+              result: r,
+              database: db
+            });
           }).catch(function (e) {
-            reject(e);
-          });
+          reject(e);
+        });
       }).catch(function (e) {
-        reject(e);
-      });
+      reject(e);
+    });
   });
 };
 
-var getData = function (inData, csvDirectory, fileOptions, regex) {
+var getData = function (inData, dataDirectory, fileOptions, regex) {
   var arrayInData = [];
   for (var record in inData) {
     arrayInData.push({
       'name': record,
-      'data': inData[record]
+      'data': inData[record],
+      'format': fileOptions.format
     });
   }
   return datawrap.runList(arrayInData.map(function (d, i) {
@@ -53,97 +58,60 @@ var getData = function (inData, csvDirectory, fileOptions, regex) {
       // is a file
       return {
         'name': 'Read file: ' + d.name,
-        'task': readCsvFile,
-        'params': [d.name, d.data.replace(regex, csvDirectory), fileOptions]
+        'task': readFile,
+        'params': [d.name, d.data.replace(regex, dataDirectory), fileOptions]
       };
     } else {
-      // might be a csv
       return {
         'name': 'Parse data: ' + i,
-        'task': parseCsvData,
-        'params': [d.name, d.data]
+        'task': parseData,
+        'params': [d.name, d.data, d.format]
       };
     }
   }));
 };
 
-var parseCsvData = function (tableName, data) {
-  return new datawrap.Bluebird(function (fulfill, reject) {
-    csv.parse(data, function (e, r) {
-      if (!e) {
-        var csvInfo = {
-          'name': tableName,
-          'data': r.slice(1)
-        };
-        var types = r[0].map(function () {
-          return 'integer';
-        });
+var parseData = function (tableName, data, dataFormat) {
+  dataFormat = dataFormat || guessFormat(data);
+  var formats = {
+    'csv': csvToTable,
+    'json': jsonToTable
+  };
 
-        csvInfo.data.forEach(function (row) {
-          row.forEach(function (column, index) {
-            types[index] = tools.getType(column, types[index]);
-          });
-        });
-
-        csvInfo.columns = r[0].map(function (name, index) {
-          return {
-            'name': name,
-            'type': types[index]
-          };
-        });
-
-        fulfill(csvInfo);
-      } else {
-        reject(e);
-      }
+  if (formats[dataFormat]) {
+    return formats[dataFormat](tableName, data);
+  } else {
+    return new datawrap.Bluebird(function (fulfill, reject) {
+      var e = new Error('data format: ' + dataFormat + ' is not supported');
+      reject(e);
     });
-  });
+  }
 };
 
-var createSqlDatabase = function (tableName, columns, data, database) {
-  return new datawrap.Bluebird(function (fulfill, reject) {
-    var createTable = 'CREATE TABLE "' + tableName + '" (' + columns.map(function (column) {
-      return '"' + column.name + '" ' + column.type.toUpperCase();
-    }).join(', ') + ');';
-    var insertStatement = 'INSERT INTO "' + tableName + '" (' + columns.map(function (column) {
-      return '"' + column.name + '"';
-    }).join(', ') + ') VALUES (' + columns.map(function (column) {
-      return '{{' + column.name + '}}';
-    }).join(', ') + ');';
 
-    var taskList = [{
-      'name': 'Create Database',
-      'task': database.runQuery,
-      'params': [createTable]
-    }, {
-      'name': 'Insert Data',
-      'task': database.runQuery,
-      'params': [insertStatement, data.map(function (row) {
-        return tools.addTitles(columns.map(function (d) {
-          return d.name;
-        }), row);
-      }), {
-        'paramList': true
-      }]
-    }];
-
-    datawrap.runList(taskList, 'Main Task')
-      .then(function (a) {
-        fulfill(a);
-      }).catch(function (e) {
-        reject(e);
-      });
-  });
-};
-
-var readCsvFile = function (name, filePath, fileOptions) {
+var readFile = function (name, filePath, fileOptions) {
   return new datawrap.Bluebird(function (fulfill, reject) {
     fs.readFileAsync(filePath, fileOptions)
       .then(function (d) {
-        parseCsvData(name, d)
+        parseData(name, d, fileOptions.format)
           .then(fulfill)
           .catch(reject);
       })
       .catch(SyntaxError, reject);
   });
+};
+
+var guessFormat = function (data) {
+  var dataFormat;
+  if (typeof data === 'object') {
+    dataFormat = 'json';
+  } else if (typeof data === 'string') {
+    try {
+      JSON.parse(data);
+      dataFormat = 'json';
+    } catch (error) {
+      dataFormat = 'csv';
+    }
+  }
+  return dataFormat;
 };
