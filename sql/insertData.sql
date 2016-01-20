@@ -3,6 +3,7 @@ INSERT INTO master (
   process,
   source,
   hash,
+  data,
   last_update,
   removed
 ) VALUES (
@@ -10,6 +11,7 @@ INSERT INTO master (
   {{process}},
   {{source}},
   {{hash}},
+  {{data}},
   {{last_update}},
   {{removed}}
 );
