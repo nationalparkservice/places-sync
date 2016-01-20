@@ -1,0 +1,1 @@
+var arcgis = function(layerUrl, 
