@@ -12,7 +12,10 @@ var datawrap = require('datawrap');
 var connection = {
   'type': 'sqlite',
   'data': {
-    'test': 'file:///csvDbtest.csv',
+    'test': {
+      'data': 'file:///csvDbtest.csv',
+      'format': 'csv'
+    },
     'test2': 'file:///csvDbtest2.csv',
     'test3': 'file:///csvDbtest3.csv',
     'jsonTest': 'file:///jsonDbtest.json'
@@ -53,7 +56,7 @@ tape('Check Tables', function (t) {
     tableNames.forEach(function (tableName) {
       taskList.push({
         'name': 'Check ' + tableName,
-        'task': tableName.substr(0,4) === 'json' ? compareJson : compareCsv,
+        'task': tableName.substr(0, 4) === 'json' ? compareJson : compareCsv,
         'params': [tableName, '{{Read ' + tableName + '}}', t]
       });
     });
@@ -86,7 +89,8 @@ var compareJson = function (tableName, data, t) {
 };
 var compareCsv = function (tableName, data, t) {
   return new datawrap.Bluebird(function (fulfill, reject) {
-    var csvFilePath = connection.data[tableName].replace(defaults.fileDesignator, defaults.dataDirectory + '/');
+    console.log(connection.data[tableName]);
+    var csvFilePath = (typeof connection.data[tableName] === 'string' ? connection.data[tableName] : connection.data[tableName].path || connection.data[tableName].data).replace(defaults.fileDesignator, defaults.dataDirectory + '/');
     fs.readFileAsync(csvFilePath).then(function (fileData) {
       csv.parse(fileData, function (e, r) {
         var columns = [];
