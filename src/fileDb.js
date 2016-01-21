@@ -3,6 +3,8 @@ var fs = datawrap.Bluebird.promisifyAll(require('fs'));
 var createTable = require('./createTable');
 var csvToTable = require('./csvToTable');
 var jsonToTable = require('./jsonToTable');
+var geojsonToTable = require('./jsonToTable'); // TODO: Fix this
+var request = require('request');
 
 module.exports = function (config, defaults, options) {
   return new datawrap.Bluebird(function (fulfill, reject) {
@@ -13,7 +15,10 @@ module.exports = function (config, defaults, options) {
     }, defaults);
     options = options || {};
 
-    var regex = new RegExp('^' + (options.fileDesignator || config.fileDesignator || defaults.fileDesignator));
+    var regex = {
+      'file': new RegExp('^' + (options.fileDesignator || config.fileDesignator || defaults.fileDesignator)),
+      'url': new RegExp('^' + 'https?://')
+    };
     var fileOptions = options.fileOptions || config.fileOptions || defaults.fileOptions;
     var dataDirectory = (options.dataDirectory || config.dataDirectory || defaults.dataDirectory);
     dataDirectory = dataDirectory + (dataDirectory.substr(-1) === '/' ? '' : '/');
@@ -36,11 +41,11 @@ module.exports = function (config, defaults, options) {
               database: db
             });
           }).catch(function (e) {
-          reject(e);
-        });
+            reject(e);
+          });
       }).catch(function (e) {
-      reject(e);
-    });
+        reject(e);
+      });
   });
 };
 
@@ -49,33 +54,43 @@ var getData = function (inData, dataDirectory, fileOptions, regex) {
   for (var record in inData) {
     arrayInData.push({
       'name': record,
-      'data': inData[record],
-      'format': fileOptions.format
+      'data': inData[record]
     });
   }
   return datawrap.runList(arrayInData.map(function (d, i) {
-    if (d.data.match(regex)) {
+    var data = typeof d.data === 'string' ? d.data : d.data.path || d.data.data;
+    if (data.match(regex.file)) {
       // is a file
       return {
         'name': 'Read file: ' + d.name,
         'task': readFile,
-        'params': [d.name, d.data.replace(regex, dataDirectory), fileOptions]
+        'params': [d.name, data.replace(regex.file, dataDirectory), d.data, fileOptions]
+      };
+    } else if (data.match(regex.url)) {
+      return {
+        'name': 'Read From URL: ' + d.name,
+        'task': readUrl,
+        'params': [d.name, data.replace(regex.url, dataDirectory), d.data]
       };
     } else {
       return {
         'name': 'Parse data: ' + i,
         'task': parseData,
-        'params': [d.name, d.data, d.format]
+        'params': [d.name, data, d.data]
       };
     }
   }));
 };
 
-var parseData = function (tableName, data, dataFormat) {
-  dataFormat = dataFormat || guessFormat(data);
+var parseData = function (tableName, data, dataOptions) {
+  var dataFormat = dataOptions.format || guessFormat(data);
   var formats = {
     'csv': csvToTable,
-    'json': jsonToTable
+    'json': jsonToTable,
+    'geojson': function (name, d) {
+      console.log('geojson');
+      return jsonToTable(name, geojsonToTable(d));
+    }
   };
 
   if (formats[dataFormat]) {
@@ -88,12 +103,23 @@ var parseData = function (tableName, data, dataFormat) {
   }
 };
 
+var readUrl = function (name, filePath, dataOptions) {
+  return new datawrap.Bluebird(function (fulfill, reject) {
+    request(filePath, function (error, response, body) {
+      if (!error && response.statusCode === 200) {
+        fulfill(body);
+      } else {
+        reject(error || new Error(filePath + ' returned status code: ' + response.statusCode));
+      }
+    });
+  });
+};
 
-var readFile = function (name, filePath, fileOptions) {
+var readFile = function (name, filePath, dataOptions, fileOptions) {
   return new datawrap.Bluebird(function (fulfill, reject) {
     fs.readFileAsync(filePath, fileOptions)
       .then(function (d) {
-        parseData(name, d, fileOptions.format)
+        parseData(name, d, dataOptions)
           .then(fulfill)
           .catch(reject);
       })
@@ -103,12 +129,17 @@ var readFile = function (name, filePath, fileOptions) {
 
 var guessFormat = function (data) {
   var dataFormat;
+  var tmp;
   if (typeof data === 'object') {
     dataFormat = 'json';
   } else if (typeof data === 'string') {
     try {
-      JSON.parse(data);
-      dataFormat = 'json';
+      tmp = JSON.parse(data);
+      if (tmp.type && tmp.type === 'FeatureCollection') {
+        dataFormat = 'geojson';
+      } else {
+        dataFormat = 'json';
+      }
     } catch (error) {
       dataFormat = 'csv';
     }
