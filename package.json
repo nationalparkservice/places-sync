@@ -12,6 +12,9 @@
     "csv": "0.4.6",
     "datawrap": "git+https://github.com/jimmyrocks/datawrap#sqlite",
     "lz-string": "1.4.4",
+    "proj4js-defs": "0.0.1",
+    "reproject": "1.0.0",
+    "request": "2.67.0",
     "tape": "4.4.0"
   },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",
