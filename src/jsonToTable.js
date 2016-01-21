@@ -1,7 +1,7 @@
 var Bluebird = require('datawrap').Bluebird;
 var tools = require('./tools');
 
-module.exports = function (tableName, data) {
+module.exports = function (tableName, data, columns) { // TODO: Support external column types
   return new Bluebird(function (fulfill, reject) {
     var jsonInfo = {
       'name': tableName,
@@ -15,6 +15,9 @@ module.exports = function (tableName, data) {
     }
 
     if (jsonInfo.data) {
+      console.log('==========================================');
+      console.error(jsonInfo.data);
+      console.log('==========================================');
       jsonInfo.data.forEach(function (row) {
         for (var column in row) {
           if (jsonInfo.columns.indexOf(column) === -1) {
