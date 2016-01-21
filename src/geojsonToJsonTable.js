@@ -4,7 +4,6 @@ var epsg = require('proj4js-defs');
 module.exports = function (geojson) {
   var geoJsonObj;
   var crss = getEpsgDefs();
-  var error;
 
   // Parse or clone the GeoJSON file
   geoJsonObj = JSON.parse(typeof geojson === 'string' ? geojson : JSON.stringify(geojson));
@@ -30,7 +29,43 @@ var geojsonToRows = function (geojson) {
   var rows = features.map(function (feature) {
     var properties = {};
     for (property in feature.properties) {
-      properties[property] = typeof feature.properties[property] !== 'object' ? feature.properties[property] : JSON.stringify(feature.properties[property]);
+      var type = Object.prototype.toString.call(feature.properties[property]).slice(8, -1);
+      var transforms = {
+        'Array': function (value) {
+          return JSON.stringify(value);
+        },
+        'Object': function (value) {
+          return JSON.stringify(value);
+        },
+        'String': function (value) {
+          return value;
+        },
+        'Date': function (value) {
+          return value.toUTCString();
+        },
+        'Error': function (value) {
+          return value.toString();
+        },
+        'RegExp': function (value) {
+          return value.toString();
+        },
+        'Function': function (value) {
+          return value.toString();
+        },
+        'Boolean': function (value) {
+          return value ? 1 : 0;
+        },
+        'Number': function (value) {
+          return value;
+        },
+        'Null': function (value) {
+          return null;
+        },
+        'Undefined': function (value) {
+          return null;
+        }
+      };
+      properties[property] = transforms[type] ? transforms[type](feature.properties[property]) : feature.properties[property].toString();
     }
     properties['geometry'] = JSON.stringify(feature.geometry);
     return properties;
