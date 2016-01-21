@@ -18,7 +18,8 @@ var connection = {
     },
     'test2': 'file:///csvDbtest2.csv',
     'test3': 'file:///csvDbtest3.csv',
-    'jsonTest': 'file:///jsonDbtest.json'
+    'jsonTest': 'file:///jsonDbtest.json',
+    'jsonTestGeo': 'file:///geojsonTest.json'
   },
   'format': 'csv',
   'name': 'csvTest'
@@ -26,6 +27,7 @@ var connection = {
 var db = datawrap(connection);
 var tableNames = [];
 var fs = datawrap.Bluebird.promisifyAll(require('fs'));
+var geojsonToJsonTable = require('../geojsonToJsonTable');
 var csv = require('csv');
 var tape = require('tape');
 
@@ -77,9 +79,12 @@ tape('Check Tables', function (t) {
 });
 var compareJson = function (tableName, data, t) {
   return new datawrap.Bluebird(function (fulfill, reject) {
-    var jsonFilePath = connection.data[tableName].replace(defaults.fileDesignator, defaults.dataDirectory + '/');
+    var jsonFilePath = (typeof connection.data[tableName] === 'string' ? connection.data[tableName] : connection.data[tableName].path || connection.data[tableName].data).replace(defaults.fileDesignator, defaults.dataDirectory + '/');
     fs.readFileAsync(jsonFilePath).then(function (fileData) {
       fileData = JSON.parse(fileData);
+      if (fileData.type && fileData.type === 'FeatureCollection') {
+        fileData = geojsonToJsonTable(fileData);
+      }
       fileData.forEach(function (row, rowIndex) {
         t.deepEqual(data[0][rowIndex], row);
       });
@@ -89,7 +94,6 @@ var compareJson = function (tableName, data, t) {
 };
 var compareCsv = function (tableName, data, t) {
   return new datawrap.Bluebird(function (fulfill, reject) {
-    console.log(connection.data[tableName]);
     var csvFilePath = (typeof connection.data[tableName] === 'string' ? connection.data[tableName] : connection.data[tableName].path || connection.data[tableName].data).replace(defaults.fileDesignator, defaults.dataDirectory + '/');
     fs.readFileAsync(csvFilePath).then(function (fileData) {
       csv.parse(fileData, function (e, r) {
