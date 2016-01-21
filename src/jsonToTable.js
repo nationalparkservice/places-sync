@@ -15,9 +15,6 @@ module.exports = function (tableName, data, columns) { // TODO: Support external
     }
 
     if (jsonInfo.data) {
-      console.log('==========================================');
-      console.error(jsonInfo.data);
-      console.log('==========================================');
       jsonInfo.data.forEach(function (row) {
         for (var column in row) {
           if (jsonInfo.columns.indexOf(column) === -1) {
@@ -37,3 +34,5 @@ module.exports = function (tableName, data, columns) { // TODO: Support external
     }
   });
 };
+
+
