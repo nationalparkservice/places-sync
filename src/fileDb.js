@@ -3,7 +3,7 @@ var fs = datawrap.Bluebird.promisifyAll(require('fs'));
 var createTable = require('./createTable');
 var csvToTable = require('./csvToTable');
 var jsonToTable = require('./jsonToTable');
-var geojsonToTable = require('./jsonToTable'); // TODO: Fix this
+var geojsonToTable = require('./geojsonToJsonTable');
 var request = require('request');
 
 module.exports = function (config, defaults, options) {
@@ -41,11 +41,11 @@ module.exports = function (config, defaults, options) {
               database: db
             });
           }).catch(function (e) {
-            reject(e);
-          });
+          reject(e);
+        });
       }).catch(function (e) {
-        reject(e);
-      });
+      reject(e);
+    });
   });
 };
 
@@ -88,7 +88,6 @@ var parseData = function (tableName, data, dataOptions) {
     'csv': csvToTable,
     'json': jsonToTable,
     'geojson': function (name, d) {
-      console.log('geojson');
       return jsonToTable(name, geojsonToTable(d));
     }
   };
@@ -132,6 +131,9 @@ var guessFormat = function (data) {
   var tmp;
   if (typeof data === 'object') {
     dataFormat = 'json';
+    if (data.type && data.type === 'FeatureCollection') {
+      data = 'geojson';
+    }
   } else if (typeof data === 'string') {
     try {
       tmp = JSON.parse(data);
