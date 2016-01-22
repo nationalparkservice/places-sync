@@ -37,6 +37,9 @@ module.exports = function (tableName, columns, db) {
           .catch(reject);
       });
     },
+    'runQuery': function (query) {
+      db.runQuery(query).then(console.log).catch(console.error);
+    },
     'close': function () {
       return new Bluebird(function (fulfill, reject) {
         var command = [null, null, {
