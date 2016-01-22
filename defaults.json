@@ -1,5 +1,6 @@
 {
   "rootDirectory": "{{env.PWD}}/sql",
+  "dataDirectory": "{{env.PWD}}/data",
   "delimiter": ";",
   "fileDesignator": "file:///",
   "fileOptions": {
