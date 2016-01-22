@@ -1,7 +1,7 @@
 var datawrap = require('datawrap');
 var tools = require('./tools');
 
-module.exports = function (tableName, columns, data, database) {
+module.exports = function (tableName, columns, data, options, database) {
   return new datawrap.Bluebird(function (fulfill, reject) {
     var createTable = 'CREATE TABLE "' + tableName + '" (' + columns.map(function (column) {
       return '"' + column.name + '" ' + column.type.toUpperCase();
