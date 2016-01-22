@@ -1,5 +1,5 @@
 var Bluebird = require('datawrap').Bluebird;
-var csvDb = require('../csvDb');
+var fileDb = require('../fileDb');
 var guid = require('../guid');
 var sourceTemplate = require('./sqliteTemplate');
 
@@ -21,7 +21,7 @@ module.exports = function (file, columns, customFunctions) {
     };
 
     config.data[tableName] = file;
-    csvDb(config, defaults)
+    fileDb(config, defaults)
       .then(function (csvObj) {
         var db = csvObj.database;
         fulfill(sourceTemplate(tableName, columns, db));
