@@ -1,16 +1,18 @@
 var Bluebird = require('datawrap').Bluebird;
 var csv = require('csv');
-var tools = require('./tools');
+var tools = require('../tools');
 
-module.exports = function (tableName, data) {
+module.exports = function (source) {
   return new Bluebird(function (fulfill, reject) {
-    csv.parse(data, function (e, r) {
+    csv.parse(source.data, function (e, r) {
+      var csvInfo = {
+        'name': source.name
+      };
+      var types = [];
+
       if (!e) {
-        var csvInfo = {
-          'name': tableName,
-          'data': r.slice(1)
-        };
-        var types = r[0].map(function () {
+        csvInfo.data = r.slice(1);
+        types = r[0].map(function () {
           return 'integer';
         });
 
