@@ -1,15 +1,8 @@
 var datawrap = require('datawrap');
-var Mockingbird = datawrap.Mockingbird;
-var tools = require('./tools');
 var guid = require('./guid');
-// var createTable = require('.createTable');
 var mainDefaults = require('../defaults');
-
-var extractors = tools.requireDirectory('./extractors');
-
-var transformData = require('./transformData');
-var loadData = require('./loadData');
-var createSource = require('./createSource');
+var Mockingbird = datawrap.mockingbird;
+var loadSource = require('./loadSource');
 
 // Creates a database in memory to store incoming data
 module.exports = function (config, options, defaults) {
@@ -17,7 +10,7 @@ module.exports = function (config, options, defaults) {
   config = buildConfig(config, options, defaults);
 
   // Once we have the config, we can create the database
-  var database = createDatabase(config);
+  var database = getDatabase(config);
   var sources = {};
   var sourcesLoaded = false;
 
@@ -25,7 +18,7 @@ module.exports = function (config, options, defaults) {
     'addData': function (source, callback) {
       // Imports the data from an object containing
       // the following information: (name and data are the only required field)
-      //    {name: (name for source) data: (see below), format: CSV, JSON, GEOJSON, columns: [{name: 'column', type: 'text'}], extractor: FILE, URL, CUSTOM}
+      //    {name: (name for source) data: (see below), format: CSV, JSON, GEOJSON, columns: [{name: 'column', type: 'text'}], extractionType: FILE, URL, CUSTOM}
       //
       // the data field can be either:
       //   1: A string that is CSV, JSON, or GEOJSON
@@ -33,19 +26,23 @@ module.exports = function (config, options, defaults) {
       //     Examples: file:///test.csv, http://github.com
       return new (Mockingbird(callback))(function (fulfill, reject) {
         loadSource(source.name, source, config.regexps, config.dataDirectory, database).then(function (result) {
-          fulfill('success'); // TODO return something better!
+          sources[source.name] = result[0];
+          fulfill(result[0]); // TODO return something better!
         }).catch(function (error) {
           reject(error); // TODO better errors
         });
       });
     },
     'load': function (callback) {
+      // Loads the databases soecified in the config
       return new (Mockingbird(callback))(function (fulfill, reject) {
         if (!sourcesLoaded) {
           loadSources(config.data, config.regexps, config.dataDirectory, database).then(function (result) {
             sourcesLoaded = true;
-            console.log(result);
-            fulfill('success'); // TODO return something better!
+            result.forEach(function (source) {
+              sources[source.name] = source;
+            });
+            fulfill(sources); // TODO return something better!
           }).catch(function (error) {
             reject(error); // TODO better errors
           });
@@ -53,7 +50,8 @@ module.exports = function (config, options, defaults) {
       });
     },
     'sources': sources,
-    'database': database
+    'database': database,
+    'name': config.name
   };
 };
 
@@ -79,19 +77,22 @@ var buildConfig = function (config, options, defaults) {
         // If it looks like a Designator, let's create a regexp for it
         designatorType = field.match(/(.+?)Designator$/);
         if (designatorType && designatorType[1]) {
-          newConfig.regexps[designatorType[1]] = new RegExp('^' + inputs[i][field]);
+          newConfig.regexps[designatorType[1]] = '^' + inputs[i][field];
         }
       }
     }
   }
 
+  newConfig.name = newConfig.name || guid();
+  newConfig.dataDirectory = newConfig.dataDirectory + (newConfig.dataDirectory.substr(-1) === '/' ? '' : '/');
+  newConfig = datawrap.fandlebars.obj(newConfig, global.process);
   return newConfig;
 };
 
-var createDatabase = function (config) {
+var getDatabase = function (config) {
   return datawrap({
     'type': 'sqlite',
-    'name': config.name || guid(),
+    'name': config.name,
     'connection': config.connection || ':memory:'
   }, config);
 };
@@ -109,51 +110,4 @@ var loadSources = function (sources, regexps, dataDirectory, database) {
   }
 
   return datawrap.runList(taskList);
-};
-
-var loadSource = function (name, source, regexps, dataDirectory, database) {
-  return new datawrap.Bluebird(function (fulfill, reject) {
-    // If the data field is a file, url, or custom, we need to fill that in, otherwise we can skip to parsing it
-    var type;
-    var taskList = [];
-    source.name = source.name || name;
-    if (source.extractor) {
-      for (type in regexps) {
-        if (source.data.match(regexps[type])) {
-          source.extractor = type;
-        }
-      }
-    }
-    if (source.extractor === 'file') {
-      source.data = source.data.replace(regexps[type], dataDirectory);
-    }
-
-    taskList = [{
-      // Add the extraction task
-      'name': 'Extract ' + source.name,
-      'task': extractors[source.extractionType || 'none'],
-      'params': [source]
-    }, {
-      // Add the task to parse the data
-      'name': 'Transform ' + source.name,
-      'task': transformData,
-      'params': ['{{Extract' + source + '}}']
-    }, {
-      // Add the task to import the data to sqlite
-      'name': 'Load ' + source.name,
-      'task': loadData,
-      'params': ['{{Parse' + source + '}}']
-    }, {
-      // Add the task to import the data to sqlite
-      'name': 'Create source ' + source.name,
-      'task': createSource,
-      'params': ['{{Parse' + source + '}}']
-    }];
-
-    datawrap.runList(taskList).then(function (r) {
-      fulfill(r[r.length - 1]);
-    }).catch(function (e) {
-      reject(e[e.length - 1]);
-    });
-  });
 };
