@@ -1,4 +1,4 @@
-ar tape = require('tape');
+var tape = require('tape');
 var tools = require('../tools');
 
 var tests = [{
