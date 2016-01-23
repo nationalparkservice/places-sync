@@ -7,10 +7,10 @@ var tools = module.exports = {
   },
   readOutput: function (output) {
     return JSON.stringify(tools.arrayify(output).map(function (o) {
-      if (o.toString().substr(0, 5) === 'Error') {
-        return o.toString + '\\n' + o.stack;
+      if (Array.isArray(o)) {
+        return tools.readOutput(o);
       } else {
-        return JSON.stringify(o, null, 2);
+        return tools.normalizeTypes(o);
       }
     }), null, 2).replace(/\\n/g, '\n');
   },
@@ -38,7 +38,7 @@ var tools = module.exports = {
     fs.readdirSync(directory).forEach(function (file) {
       var match = file.match(regexp);
       if (match) {
-        returnValue[match[1]] = path.resolve(path.join(directory, file));
+        returnValue[match[1]] = require(path.resolve(path.join(directory, file)));
       }
     });
     return returnValue;
@@ -55,11 +55,12 @@ var tools = module.exports = {
       } catch (e) {
         error = e;
       }
-      return {
+      var returnObj = {
         'then': function (thenFn) {
           if (!throwError && !error) {
             thenFn(result);
           }
+          return returnObj;
         },
         'catch': function (catchFn) {
           if (throwError) {
@@ -67,8 +68,10 @@ var tools = module.exports = {
           } else if (error) {
             catchFn(error);
           }
+          return returnObj;
         }
       };
+      return returnObj;
     };
   },
   normalizeTypes: function (input) {
