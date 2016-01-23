@@ -1,5 +1,6 @@
 var reproject = require('reproject');
 var epsg = require('proj4js-defs');
+var toJsonTable = require('./json');
 
 module.exports = function (geojson) {
   var geoJsonObj;
@@ -12,7 +13,7 @@ module.exports = function (geojson) {
   geoJsonObj = reproject.reproject(geoJsonObj, null, 'EPSG:4326', crss);
 
   // convert the geojson to rows for the table
-  return geojsonToRows(geoJsonObj);
+  return toJsonTable(geojsonToRows(geoJsonObj));
 };
 
 var getEpsgDefs = function () {
