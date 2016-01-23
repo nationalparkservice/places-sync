@@ -1,12 +1,23 @@
-var md5 = require('../md5');
-var Bluebird = require('datawrap').Bluebird;
+var md5 = require('./md5');
+var Mockingbird = require('datawrap').mockingbird;
+var tools = require('./tools');
 
-module.exports = function (tableName, columns, db) {
+module.exports = tools.syncPromise(function (source, database) {
+  var tableName = source.name;
+  var columns = {
+    'primaryKey': source.primaryKey || source.columns && source.columns[0].name || '1',
+    'lastUpdated': source.lastUpdated,
+    'columns': (source.columns || []).map(function (column) {
+      return column.name;
+    })
+  };
+  console.log(columns);
+
   return {
-    'getRowAt': function (key) {
-      return new Bluebird(function (fulfill, reject) {
+    'getRowAt': function (key, callback) {
+      return new (Mockingbird(callback))(function (fulfill, reject) {
         var sql = 'SELECT "' + columns.primaryKey + '", "' + columns.columns.join('", "') + '" FROM "' + tableName + '" WHERE "' + columns.primaryKey + '" = {{key}};';
-        db.runQuery(sql, {
+        database.runQuery(sql, {
           'key': key.toString()
         }).then(function (res) {
           console.log('sql', sql, key.toString());
@@ -14,14 +25,14 @@ module.exports = function (tableName, columns, db) {
         }).catch(reject);
       });
     },
-    'getHashedData': function (fromDate) {
-      return new Bluebird(function (fulfill, reject) {
+    'getHashedData': function (fromDate, callback) {
+      return new (Mockingbird(callback))(function (fulfill, reject) {
         var sql = 'SELECT "' + columns.primaryKey + '" AS key, (' + columns.columns.map(function (columnName) {
-          return 'COALESCE(CAST("' + columnName + '" AS TEXT), \'\')';
-        }).join(' || ') + ') AS "prehash" FROM "' + tableName + '"';
+            return 'COALESCE(CAST("' + columnName + '" AS TEXT), \'\')';
+          }).join(' || ') + ') AS "prehash" FROM "' + tableName + '"';
         sql += (columns.lastUpdated && fromDate) ? ' WHERE "' + columns.lastUpdated + '" >= {{fromDate}};' : ';';
         console.log('sql', sql);
-        db.runQuery(sql, {
+        database.runQuery(sql, {
           'fromDate': fromDate
         })
           .then(function (result) {
@@ -31,22 +42,28 @@ module.exports = function (tableName, columns, db) {
                 hash: md5(row.prehash)
               };
             });
-            console.log('sql', sql);
-            console.log('result', hashed);
+            fulfill(hashed);
           })
           .catch(reject);
       });
     },
-    'runQuery': function (query) {
-      db.runQuery(query).then(console.log).catch(console.error);
+    'runQuery': function (query, callback) {
+      return new (Mockingbird(callback))(function (fulfill, reject) {
+        database.runQuery(query).then(fulfill).catch(function (e) {
+          reject(e[e.length - 1]);
+        });
+      });
     },
-    'close': function () {
-      return new Bluebird(function (fulfill, reject) {
+    'close': function (callback) {
+      return new (Mockingbird(callback))(function (fulfill, reject) {
         var command = [null, null, {
           'close': true
         }];
-        db.runQuery.apply(db, command).then(fulfill).catch(reject);
+        database.runQuery.apply(database, command).then(fulfill).catch(function (e) {
+          reject(e[e.length - 1]);
+        });
       });
-    }
+    },
+    'name': source.name
   };
-};
+});
