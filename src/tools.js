@@ -74,6 +74,37 @@ var tools = module.exports = {
       return returnObj;
     };
   },
+  simplifyArray: function (inArray, field) {
+    // This takes an array and returns only the specified field
+    // default is "name"
+    field = field || 'name';
+    return (inArray || []).map(function (item) {
+      return typeof item === 'object' ? item[field] : item;
+    });
+  },
+  desimplifyArray: function (inArray, field) {
+    // This does the reverse of simplifyArray
+    // it takes a simple array and makes it an array of objects
+    // with the former row value in the selected field
+    // default is "name"
+    field = field || 'name';
+    return (inArray || []).map(function (item) {
+      var returnObject = {};
+      returnObject[field] = item;
+      return typeof item !== 'object' ? returnObject : item;
+    });
+  },
+  buildUrlQuery: function (root, queryObj) {
+    var query = [];
+    for (var item in queryObj) {
+      // The normalize function "normalizes" Boolean fields to 0 or 1, but URLs usually work differently
+      if (Object.prototype.toString.call(queryObj[item]).slice(8,-1) === 'Boolean') {
+        queryObj[item] = queryObj[item].toString();
+      }
+      query.push(item + '=' + encodeURIComponent(tools.normalizeTypes(queryObj[item])));
+    }
+    return root + query.join('&');
+  },
   normalizeTypes: function (input) {
     // Convert input into a more usable string
     var type = Object.prototype.toString.call(input).slice(8, -1);
