@@ -15,7 +15,8 @@
     "proj4js-defs": "0.0.1",
     "reproject": "1.0.0",
     "request": "2.67.0",
-    "tape": "4.4.0"
+    "tape": "4.4.0",
+    "terraformer-arcgis-parser": "1.0.4"
   },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",
   "keywords": ["nps", "postgres", "cartodb"],
