@@ -72,9 +72,70 @@ var tests = [{
   'task': tools.getType,
   'params': ['dfadsiadfa', 'float'],
   'expected': 'text'
+}, {
+  'name': 'test simplify',
+  'task': tools.simplifyArray,
+  'params': [
+    [{
+      'name': 'one'
+    }, {
+      'name': 'two'
+    }, 'three']
+  ],
+  'expected': ['one', 'two', 'three']
+}, {
+  'name': 'test simplify',
+  'task': tools.simplifyArray,
+  'params': [
+    ['one', 'two', 'three']
+  ],
+  'expected': ['one', 'two', 'three']
+}, {
+  'name': 'test desimplify',
+  'task': tools.desimplifyArray,
+  'params': [
+    [{
+      'name': 'one'
+    }, {
+      'name': 'two',
+      'type': 'good'
+    }, 'three']
+  ],
+  'expected': [{
+    'name': 'one'
+  }, {
+    'name': 'two',
+    'type': 'good'
+  }, {
+    'name': 'three'
+  }]
+}, {
+  'name': 'test desimplify',
+  'task': tools.desimplifyArray,
+  'params': [
+    ['one', 'two', 'three'], 'same'
+  ],
+  'expected': [{
+    'same': 'one'
+  }, {
+    'same': 'two'
+  }, {
+    'same': 'three'
+  }]
+}, {
+  'name': 'buildUrlQuery Test 1',
+  'task': tools.buildUrlQuery,
+  'params': ['http://test.com/q?', {
+    'a': 1,
+    'b': true,
+    'c': {
+      'a': 1
+    }
+  }],
+  'expected': 'http://test.com/q?a=1&b=true&c=%7B%22a%22%3A1%7D'
 }];
 
-tape('Test the tools js file', function(t) {
+tape('Test the tools js file', function (t) {
   for (var i = 0; i < tests.length; i++) {
     var result = tests[i].task.apply(this, tests[i].params);
     t.deepEqual(result, tests[i].expected);
