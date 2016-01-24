@@ -38,18 +38,18 @@ var testSources = {
 };
 
 // Create the datasource
-var createSourceDb = function (onLoadSources) {
+var createSourceDb = function(onLoadSources) {
   return createDatabase({
     'dataDirectory': './data/',
     data: onLoadSources
   });
 };
 
-var test = function (sourcesToTest) {
-  tape('Testing createDatabase.js', function (t) {
+var test = function(sourcesToTest) {
+  tape('Testing createDatabase.js', function(t) {
     var sourceDb = createSourceDb(sourcesToTest.load);
     var sourceName;
-    var tapeError = function (e) {
+    var tapeError = function(e) {
       t.end();
       reportError(e);
     };
@@ -87,14 +87,14 @@ var test = function (sourcesToTest) {
       });
     }
 
-    datawrap.runList(taskList).then(function (result) {
+    datawrap.runList(taskList).then(function(result) {
       console.log('success!');
       t.end();
     }).catch(tapeError);
   });
 };
 
-var reportError = function (e) {
+var reportError = function(e) {
   e = tools.arrayify(e);
   console.error(tools.readOutput(e));
   console.error(e[e.length - 1]);
@@ -102,14 +102,14 @@ var reportError = function (e) {
   throw e[e.length - 1];
 };
 
-var testSource = function (originalSource, databaseSources, sourceName, t) {
-  return new datawrap.Bluebird(function (fulfill, reject) {
+var testSource = function(originalSource, databaseSources, sourceName, t) {
+  return new datawrap.Bluebird(function(fulfill, reject) {
     var databaseSource = databaseSources[sourceName];
     var data;
     var fileRegExp = new RegExp('^file:///(.+?)$', 'g');
 
     // Select data from the source
-    databaseSource.runQuery('SELECT * FROM "' + sourceName + '";', function (e, r) {
+    databaseSource.runQuery('SELECT * FROM "' + sourceName + '";', function(e, r) {
       if (e) {
         reject(e);
       } else {
@@ -122,9 +122,9 @@ var testSource = function (originalSource, databaseSources, sourceName, t) {
         formats[guessFormat(data)]({
           'name': sourceName,
           'data': data
-        }).then(function (transformedData) {
-          transformedData.data.forEach(function (row, rowI) {
-            row = Array.isArray(row) ? tools.addTitles(transformedData.columns.map(function (c) {
+        }).then(function(transformedData) {
+          transformedData.data.forEach(function(row, rowI) {
+            row = Array.isArray(row) ? tools.addTitles(transformedData.columns.map(function(c) {
               return c.name;
             }), row) : row;
             for (var field in row) {
@@ -132,7 +132,7 @@ var testSource = function (originalSource, databaseSources, sourceName, t) {
             }
           });
           fulfill('done');
-        }).catch(function (e) {
+        }).catch(function(e) {
           t.equals(1, 0);
           reject(e);
         });
