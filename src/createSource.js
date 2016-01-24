@@ -4,19 +4,14 @@ var tools = require('./tools');
 
 module.exports = tools.syncPromise(function (source, database) {
   var tableName = source.name;
-  var columns = {
-    'primaryKey': source.primaryKey || source.columns && source.columns[0].name || '1',
-    'lastUpdated': source.lastUpdated,
-    'columns': (source.columns || []).map(function (column) {
-      return column.name;
-    })
-  };
-  console.log(columns);
+  var primaryKey = source.primaryKey || source.columns && source.columns[0].name || '1';
+  var lastEditField = source.editFields && source.editFields.dateEdited;
+  var columns = tools.simplifyArray(source.columns);
 
   return {
     'getRowAt': function (key, callback) {
       return new (Mockingbird(callback))(function (fulfill, reject) {
-        var sql = 'SELECT "' + columns.primaryKey + '", "' + columns.columns.join('", "') + '" FROM "' + tableName + '" WHERE "' + columns.primaryKey + '" = {{key}};';
+        var sql = 'SELECT "' + primaryKey + '", "' + columns.join('", "') + '" FROM "' + tableName + '" WHERE "' + primaryKey + '" = {{key}};';
         database.runQuery(sql, {
           'key': key.toString()
         }).then(function (res) {
@@ -27,24 +22,25 @@ module.exports = tools.syncPromise(function (source, database) {
     },
     'getHashedData': function (fromDate, callback) {
       return new (Mockingbird(callback))(function (fulfill, reject) {
-        var sql = 'SELECT "' + columns.primaryKey + '" AS key, (' + columns.columns.map(function (columnName) {
-            return 'COALESCE(CAST("' + columnName + '" AS TEXT), \'\')';
-          }).join(' || ') + ') AS "prehash" FROM "' + tableName + '"';
-        sql += (columns.lastUpdated && fromDate) ? ' WHERE "' + columns.lastUpdated + '" >= {{fromDate}};' : ';';
+        var sql = 'SELECT "' + primaryKey + '" AS key, (' + columns.map(function (columnName) {
+          return 'COALESCE(CAST("' + columnName + '" AS TEXT), \'\')';
+        }).join(' || ') + ') AS "prehash" FROM "' + tableName + '"';
+        sql += (lastEditField && fromDate) ? ' WHERE "' + lastEditField + '" >= {{fromDate}};' : ';';
         console.log('sql', sql);
         database.runQuery(sql, {
           'fromDate': fromDate
+        }).then(function (result) {
+          var hashed = result[0].map(function (row) {
+            return {
+              key: row.key,
+              hash: md5(row.prehash)
+            };
+          });
+          fulfill(hashed);
         })
-          .then(function (result) {
-            var hashed = result[0].map(function (row) {
-              return {
-                key: row.key,
-                hash: md5(row.prehash)
-              };
-            });
-            fulfill(hashed);
-          })
-          .catch(reject);
+          .catch(function (e) {
+            reject(e[e.length - 1]);
+          });
       });
     },
     'runQuery': function (query, callback) {
