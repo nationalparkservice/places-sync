@@ -9,15 +9,16 @@ module.exports = tools.syncPromise(function (source, database) {
   var columns = tools.simplifyArray(source.columns);
 
   return {
-    'getRowAt': function (key, callback) {
+    'getRow': function (key, callback) {
       return new (Mockingbird(callback))(function (fulfill, reject) {
         var sql = 'SELECT "' + primaryKey + '", "' + columns.join('", "') + '" FROM "' + tableName + '" WHERE "' + primaryKey + '" = {{key}};';
         database.runQuery(sql, {
           'key': key.toString()
-        }).then(function (res) {
-          console.log('sql', sql, key.toString());
-          console.log('result', res[0]);
-        }).catch(reject);
+        }).then(function (res[0]) {
+          fulfill(res);
+        }).catch(function (e) {
+          reject(tools.readError(e));
+        });
       });
     },
     'getHashedData': function (fromDate, callback) {
@@ -26,7 +27,7 @@ module.exports = tools.syncPromise(function (source, database) {
           return 'COALESCE(CAST("' + columnName + '" AS TEXT), \'\')';
         }).join(' || ') + ') AS "prehash" FROM "' + tableName + '"';
         sql += (lastEditField && fromDate) ? ' WHERE "' + lastEditField + '" >= {{fromDate}};' : ';';
-        console.log('sql', sql);
+        // console.log('sql', sql);
         database.runQuery(sql, {
           'fromDate': fromDate
         }).then(function (result) {
@@ -39,26 +40,14 @@ module.exports = tools.syncPromise(function (source, database) {
           fulfill(hashed);
         })
           .catch(function (e) {
-            reject(e[e.length - 1]);
+            reject(tools.readError(e));
           });
       });
     },
-    'runQuery': function (query, callback) {
-      return new (Mockingbird(callback))(function (fulfill, reject) {
-        database.runQuery(query).then(fulfill).catch(function (e) {
-          reject(e[e.length - 1]);
-        });
-      });
-    },
-    'close': function (callback) {
-      return new (Mockingbird(callback))(function (fulfill, reject) {
-        var command = [null, null, {
-          'close': true
-        }];
-        database.runQuery.apply(database, command).then(fulfill).catch(function (e) {
-          reject(e[e.length - 1]);
-        });
-      });
+    '_source': function () {
+      var tmpSource = JSON.parse(JSON.stringify(source));
+      delete tmpSource.data;
+      return tmpSource;
     },
     'name': source.name
   };
