@@ -2,18 +2,21 @@ var reproject = require('reproject');
 var epsg = require('proj4js-defs');
 var toJsonTable = require('./json');
 
-module.exports = function (geojson) {
+module.exports = function (source) {
   var geoJsonObj;
   var crss = getEpsgDefs();
 
   // Parse or clone the GeoJSON file
-  geoJsonObj = JSON.parse(typeof geojson === 'string' ? geojson : JSON.stringify(geojson));
+  geoJsonObj = JSON.parse(typeof source.data === 'string' ? source.data : JSON.stringify(source.data));
 
-  // Reproject the GeoJSON File
+  // Reproject the GeoJSON Filea
   geoJsonObj = reproject.reproject(geoJsonObj, null, 'EPSG:4326', crss);
 
+  // Add the new format of data back into the source
+  source.data = geojsonToRows(geoJsonObj);
+
   // convert the geojson to rows for the table
-  return toJsonTable(geojsonToRows(geoJsonObj));
+  return toJsonTable(source);
 };
 
 var getEpsgDefs = function () {
