@@ -4,7 +4,7 @@ module.exports = tools.syncPromise(function (source) {
   // Add the data to the object
   source.data = JSON.parse(typeof source.data === 'string' ? source.data : JSON.stringify(source.data));
   var predefinedColumns = !!source.columns;
-  source.columns = [];
+  source.columns = source.columns || [];
   if (typeof source.data === 'string') {
     source.data = JSON.parse(source.data);
   }
