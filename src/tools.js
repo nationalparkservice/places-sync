@@ -5,6 +5,9 @@ var tools = module.exports = {
   arrayify: function (value) {
     return Array.isArray(value) ? value : [value];
   },
+  getJsType: function (value) {
+    return Object.prototype.toString.call(value).slice(8, -1);
+  },
   readOutput: function (output) {
     return JSON.stringify(tools.arrayify(output).map(function (o) {
       if (Array.isArray(o)) {
@@ -13,6 +16,29 @@ var tools = module.exports = {
         return tools.normalizeTypes(o);
       }
     }), null, 2).replace(/\\n/g, '\n');
+  },
+  readError: function (errorArray, type) {
+    // Will look for any type over than an array, since that wouldn't work
+    type = (type && type.toLowerCase()) || 'error';
+    if (type === 'array') {
+      return;
+    }
+
+    var inArray = tools.arrayify(errorArray);
+    var inputType;
+    var subValue;
+    for (var i = inArray.length-1; i >= 0; i--) {
+      inputType = tools.getJsType(inArray[i]).toLowerCase();
+      if (inputType === type) {
+        return inArray[i];
+      } else if (inputType === 'array') {
+        subValue = tools.readError(inArray[i], type);
+        if (subValue) {
+          return subValue;
+        }
+      }
+    }
+    return;
   },
   addTitles: function (titles, data) {
     var returnValue = {};
@@ -98,7 +124,7 @@ var tools = module.exports = {
     var query = [];
     for (var item in queryObj) {
       // The normalize function "normalizes" Boolean fields to 0 or 1, but URLs usually work differently
-      if (Object.prototype.toString.call(queryObj[item]).slice(8,-1) === 'Boolean') {
+      if (tools.getJsType(queryObj[item]) === 'Boolean') {
         queryObj[item] = queryObj[item].toString();
       }
       query.push(item + '=' + encodeURIComponent(tools.normalizeTypes(queryObj[item])));
@@ -107,7 +133,7 @@ var tools = module.exports = {
   },
   normalizeTypes: function (input) {
     // Convert input into a more usable string
-    var type = Object.prototype.toString.call(input).slice(8, -1);
+    var type = tools.getJsType(input);
     var transforms = {
       'Array': function (value) {
         return JSON.stringify(value);
