@@ -26,15 +26,34 @@ module.exports = function (config, options, defaults) {
       //   2: A string that uses a designator and a type to load a file or url or a custom source
       //     Examples: file:///test.csv, http://github.com
       return new (Mockingbird(callback))(function (fulfill, reject) {
-        loadSource(source.name, source, config.regexps, config.dataDirectory, database).then(function (result) {
-          sources[source.name] = result[0];
-          fulfill(result[0]); // TODO return something better!
-        }).catch(function (error) {
-          console.log(tools.readOutput(error));
-          if (Array.isArray(error)) {
-            error = error[error.length - 1];
-          }
-          reject(error); // TODO better errors
+        if (!source.data) {
+          reject(new Error('New source must contain a data field'));
+        } else if (sources[source.name]) {
+          reject(new Error('Data source with name: ' + source.name + ' already exists'));
+        } else {
+          loadSource(source.name, source, config.regexps, config.dataDirectory, database).then(function (result) {
+            sources[source.name] = result;
+            fulfill(result); // TODO return something better!
+          }).catch(function (error) {
+            reject(tools.readError(error));
+          });
+        }
+      });
+    },
+    'close': function (callback) {
+      return new (Mockingbird(callback))(function (fulfill, reject) {
+        var command = [null, null, {
+          'close': true
+        }];
+        database.runQuery.apply(database, command).then(fulfill).catch(function (e) {
+          reject(tools.readError(e));
+        });
+      });
+    },
+    '_runQuery': function (query, callback) {
+      return new (Mockingbird(callback))(function (fulfill, reject) {
+        database.runQuery(query).then(fulfill).catch(function (e) {
+          reject(tools.readError(e));
         });
       });
     },
@@ -49,8 +68,7 @@ module.exports = function (config, options, defaults) {
             });
             fulfill(sources); // TODO return something better!
           }).catch(function (error) {
-          console.log(tools.readOutput(error));
-            reject(error); // TODO better errors
+            reject(tools.readError(error));
           });
         }
       });
