@@ -4,8 +4,8 @@ var request = datawrap.Bluebird.promisify(require('request'));
 var tools = require('../tools');
 datawrap.Bluebird.promisifyAll(request);
 
-var arcgis = module.exports = function (source) {
-  var sourceUrl = source.data;
+var arcgis = module.exports = function (source, regexps) {
+  var sourceUrl = source.data.replace(new RegExp(regexps[source.extractionType]),'');
   var predefinedColumns = tools.desimplifyArray(source.columns);
   var lastEditDate = source.lastEditDate;
 
