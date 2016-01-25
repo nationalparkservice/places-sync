@@ -20,15 +20,12 @@ module.exports = function (name, source, regexps, dataDirectory, database) {
         }
       }
     }
-    if (source.extractionType === 'file') {
-      source.data = source.data.replace(new RegExp(regexps[source.extractionType]), dataDirectory);
-    }
 
     taskList = [{
       // Add the extraction task
       'name': 'Extract ' + source.name,
       'task': extractors[source.extractionType || 'none'],
-      'params': [source]
+      'params': [source, regexps, dataDirectory]
     }, {
       // Add the task to parse the data
       'name': 'Transform ' + source.name,
