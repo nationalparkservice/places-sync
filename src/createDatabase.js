@@ -3,6 +3,7 @@ var guid = require('./guid');
 var mainDefaults = require('../defaults');
 var Mockingbird = datawrap.mockingbird;
 var loadSource = require('./loadSource');
+var tools = require('./tools');
 
 // Creates a database in memory to store incoming data
 module.exports = function (config, options, defaults) {
@@ -18,7 +19,7 @@ module.exports = function (config, options, defaults) {
     'addData': function (source, callback) {
       // Imports the data from an object containing
       // the following information: (name and data are the only required field)
-      //    {name: (name for source) data: (see below), format: CSV, JSON, GEOJSON, columns: [{name: 'column', type: 'text'}], extractionType: FILE, URL, CUSTOM}
+      //    {name: (name for source) data: (see below), format: CSV, JSON, GEOJSON, columns: [{name: 'column', type: 'text'}], extractionType: FILE, URL, ARCGIS}
       //
       // the data field can be either:
       //   1: A string that is CSV, JSON, or GEOJSON
@@ -29,6 +30,10 @@ module.exports = function (config, options, defaults) {
           sources[source.name] = result[0];
           fulfill(result[0]); // TODO return something better!
         }).catch(function (error) {
+          console.log(tools.readOutput(error));
+          if (Array.isArray(error)) {
+            error = error[error.length - 1];
+          }
           reject(error); // TODO better errors
         });
       });
@@ -44,6 +49,7 @@ module.exports = function (config, options, defaults) {
             });
             fulfill(sources); // TODO return something better!
           }).catch(function (error) {
+          console.log(tools.readOutput(error));
             reject(error); // TODO better errors
           });
         }
