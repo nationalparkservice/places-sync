@@ -133,9 +133,38 @@ var tests = [{
     }
   }],
   'expected': 'http://test.com/q?a=1&b=true&c=%7B%22a%22%3A1%7D'
+}, {
+  'name': 'Error reporting Test 1',
+  'task': tools.readError,
+  'params': [
+    [
+      [
+        [
+          [
+            ['test'], 1, 1
+          ], 2, 2
+        ], 3, 3
+      ]
+    ], 'string'
+  ],
+  'expected': 'test'
+}, {
+  'name': 'Error reporting Test 2',
+  'task': tools.readError,
+  'params': [
+    [
+      'test',
+      'test2', ['1', '2', '3', '4'], {
+        'test': 'obj'
+      }
+    ], 'object'
+  ],
+  'expected': {
+    'test': 'obj'
+  }
 }];
 
-tape('Test the tools js file', function (t) {
+tape('Test the tools js file', function(t) {
   for (var i = 0; i < tests.length; i++) {
     var result = tests[i].task.apply(this, tests[i].params);
     t.deepEqual(result, tests[i].expected);
