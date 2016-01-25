@@ -4,9 +4,8 @@ var request = datawrap.Bluebird.promisify(require('request'));
 var tools = require('../tools');
 datawrap.Bluebird.promisifyAll(request);
 
-var arcgis = module.exports = function (source, regexps) {
-  var sourceUrl = source.data.replace(new RegExp(regexps[source.extractionType]),'');
-  var predefinedColumns = tools.desimplifyArray(source.columns);
+module.exports = function (source, regexps) {
+  var sourceUrl = source.data.replace(new RegExp(regexps[source.extractionType]), '');
   var lastEditDate = source.lastEditDate;
 
   return new datawrap.Bluebird(function (fulfill, reject) {
@@ -18,7 +17,7 @@ var arcgis = module.exports = function (source, regexps) {
       // Query the service
       'name': 'Query service',
       'task': queryService,
-      'params': ['{{Read source}}', predefinedColumns, lastEditDate, sourceUrl]
+      'params': [source, '{{Read source}}', lastEditDate, sourceUrl]
     }];
 
     datawrap.runList(taskList).then(function (result) {
@@ -29,9 +28,9 @@ var arcgis = module.exports = function (source, regexps) {
   });
 };
 
-var queryService = function (sourceData, predefinedColumns, lastEditDate, sourceUrl) {
+var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl) {
   return new datawrap.Bluebird(function (fulfill, reject) {
-    var sourceInfo = getSourceInfo(sourceData, predefinedColumns, sourceUrl);
+    var sourceInfo = getSourceInfo(originalSource, sourceData, sourceUrl);
     var queries = {
       'getCount': {
         'where': '1=1',
@@ -121,8 +120,9 @@ var esriToGeoJson = function (esriJson, options) {
   return geojson;
 };
 
-var getSourceInfo = function (sourceData, predefinedColumns, sourceUrl) {
+var getSourceInfo = function (originalSource, sourceData, sourceUrl) {
   sourceData = JSON.parse(sourceData.body);
+  var predefinedColumns = tools.desimplifyArray(originalSource.columns);
   var sourceInfo = {
     'columns': [],
     'description': sourceData.description,
@@ -136,7 +136,7 @@ var getSourceInfo = function (sourceData, predefinedColumns, sourceUrl) {
     'supportsPagination': sourceData.advancedQueryCapabilities.supportsPagination
   };
   if (sourceData.editingInfo) {
-    sourceInfo.editFields = {
+    sourceInfo.editingInfo = {
       'dateCreated': sourceData.editFieldsInfo.creationDateField,
       'userCreated': sourceData.editFieldsInfo.creatorField,
       'dateEdited': sourceData.editFieldsInfo.editDateField,
@@ -159,13 +159,16 @@ var getSourceInfo = function (sourceData, predefinedColumns, sourceUrl) {
     column.type = column.type || parseEsriType(field.type);
     sourceInfo.columns.push(column);
   });
-  return sourceInfo;
+  for (var field in sourceInfo) {
+    originalSource[field] = originalSource[field] || sourceInfo[field];
+  }
+  return originalSource;
 };
 
 var parseEsriType = function (esriType) {
   var returnValue;
   var types = {
-    'integer': ['esriFieldTypeOID', 'esriFieldTypeSmallInteger', 'esriFieldTypeDate', 'esriFieldTypeInteger'],
+    'integers': ['esriFieldTypeOID', 'esriFieldTypeSmallInteger', 'esriFieldTypeDate', 'esriFieldTypeInteger'],
     'floats': ['esriFieldTypeDouble', 'esriFieldTypeSingle'],
     'texts': ['esriFieldTypeString', 'esriFieldTypeGlobalID', 'esriFieldTypeBlob', 'esriFieldTypeRaster', 'esriFieldTypeGUID', 'esriFieldTypeXML']
   };
