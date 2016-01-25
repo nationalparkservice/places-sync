@@ -35,7 +35,7 @@ module.exports = function (name, source, regexps, dataDirectory, database) {
       // Add the task to import the data to sqlite
       'name': 'Load ' + source.name,
       'task': loadData,
-      'params': [source, '{{Transform ' + source.name + '}}', database]
+      'params': ['{{Transform ' + source.name + '}}', database]
     }, {
       // Add the task to import the data to sqlite
       'name': 'Create source ' + source.name,
@@ -45,6 +45,8 @@ module.exports = function (name, source, regexps, dataDirectory, database) {
 
     datawrap.runList(taskList).then(function (r) {
       fulfill(r[r.length - 1]);
-    }).catch(reject);
+    }).catch(function (e) {
+      reject(tools.readError(e));
+    });
   });
 };
