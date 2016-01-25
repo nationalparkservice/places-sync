@@ -6,7 +6,6 @@ module.exports = function (source, data) {
   if (typeof data === 'object') {
     // It might have some values we want in our source
     for (var field in data) {
-      console.log('has field', field);
       source[field] = data[field];
     }
   } else {
