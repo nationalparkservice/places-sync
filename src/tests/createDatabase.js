@@ -66,7 +66,7 @@ var test = function(sourcesToTest) {
       taskList.push({
         'name': 'Test Source ' + sourceName,
         'task': testSource,
-        'params': [sourcesToTest.load[sourceName], sourceDb.sources, sourceName, t]
+        'params': [sourcesToTest.load[sourceName], sourceDb.sources, sourceName, sourceDb, t]
       });
     }
 
@@ -83,7 +83,7 @@ var test = function(sourcesToTest) {
       taskList.push({
         'name': 'Test Source ' + sourceName,
         'task': testSource,
-        'params': [sourcesToTest.addNew[sourceName], sourceDb.sources[sourceName], t]
+        'params': [sourcesToTest.addNew[sourceName], sourceDb.sources[sourceName], sourceDb, t]
       });
     }
 
@@ -95,6 +95,7 @@ var test = function(sourcesToTest) {
 };
 
 var reportError = function(e) {
+  console.log(e);
   e = tools.arrayify(e);
   console.error(tools.readOutput(e));
   console.error(e[e.length - 1]);
@@ -102,14 +103,14 @@ var reportError = function(e) {
   throw e[e.length - 1];
 };
 
-var testSource = function(originalSource, databaseSources, sourceName, t) {
+var testSource = function(originalSource, databaseSources, sourceName, sourceDb, t) {
   return new datawrap.Bluebird(function(fulfill, reject) {
     var databaseSource = databaseSources[sourceName];
     var data;
     var fileRegExp = new RegExp('^file:///(.+?)$', 'g');
 
     // Select data from the source
-    databaseSource.runQuery('SELECT * FROM "' + sourceName + '";', function(e, r) {
+    sourceDb._runQuery('SELECT * FROM "' + sourceName + '";', function(e, r) {
       if (e) {
         reject(e);
       } else {
