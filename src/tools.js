@@ -6,7 +6,7 @@ var tools = module.exports = {
     return Array.isArray(value) ? value : [value];
   },
   getJsType: function (value) {
-    return Object.prototype.toString.call(value).slice(8, -1);
+    return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
   },
   readOutput: function (output) {
     return JSON.stringify(tools.arrayify(output).map(function (o) {
@@ -27,8 +27,8 @@ var tools = module.exports = {
     var inArray = tools.arrayify(errorArray);
     var inputType;
     var subValue;
-    for (var i = inArray.length-1; i >= 0; i--) {
-      inputType = tools.getJsType(inArray[i]).toLowerCase();
+    for (var i = inArray.length - 1; i >= 0; i--) {
+      inputType = tools.getJsType(inArray[i]);
       if (inputType === type) {
         return inArray[i];
       } else if (inputType === 'array') {
@@ -77,7 +77,13 @@ var tools = module.exports = {
       var result;
       var error;
       try {
-        result = fn.apply(this, arguments);
+        if (tools.getJsType(fn) === 'function') {
+          result = fn.apply(this, arguments);
+        } else {
+          result = function () {
+            return fn;
+          };
+        }
       } catch (e) {
         error = e;
       }
@@ -123,8 +129,8 @@ var tools = module.exports = {
   buildUrlQuery: function (root, queryObj) {
     var query = [];
     for (var item in queryObj) {
-      // The normalize function "normalizes" Boolean fields to 0 or 1, but URLs usually work differently
-      if (tools.getJsType(queryObj[item]) === 'Boolean') {
+      // The normalize function "normalizes" Boolean fields to 0 or 1, but URLs usually use true/false strings
+      if (tools.getJsType(queryObj[item]) === 'boolean') {
         queryObj[item] = queryObj[item].toString();
       }
       query.push(item + '=' + encodeURIComponent(tools.normalizeTypes(queryObj[item])));
@@ -135,37 +141,37 @@ var tools = module.exports = {
     // Convert input into a more usable string
     var type = tools.getJsType(input);
     var transforms = {
-      'Array': function (value) {
+      'array': function (value) {
         return JSON.stringify(value);
       },
-      'Object': function (value) {
+      'object': function (value) {
         return JSON.stringify(value);
       },
-      'String': function (value) {
+      'string': function (value) {
         return value;
       },
-      'Date': function (value) {
+      'date': function (value) {
         return value.toUTCString();
       },
-      'Error': function (value) {
+      'error': function (value) {
         return value.stack || value.toString();
       },
-      'RegExp': function (value) {
+      'regexp': function (value) {
         return value.toString();
       },
-      'Function': function (value) {
+      'function': function (value) {
         return value.toString();
       },
-      'Boolean': function (value) {
+      'boolean': function (value) {
         return value ? 1 : 0;
       },
-      'Number': function (value) {
+      'number': function (value) {
         return value;
       },
-      'Null': function (value) {
+      'null': function (value) {
         return null;
       },
-      'Undefined': function (value) {
+      'undefined': function (value) {
         return null;
       }
     };
