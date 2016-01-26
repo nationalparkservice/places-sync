@@ -1,17 +1,17 @@
 var terraformer = require('terraformer-arcgis-parser');
 var datawrap = require('datawrap');
-var request = datawrap.Bluebird.promisify(require('request'));
+var request = datawrap.Bluebird.promisifyAll(require('request'));
 var tools = require('../tools');
-datawrap.Bluebird.promisifyAll(request);
 
 module.exports = function (source, regexps) {
   var sourceUrl = source.data.replace(new RegExp(regexps[source.extractionType]), '');
+  sourceUrl += sourceUrl.substr(-1) === '/' ? '' : '/';
   var lastEditDate = source.lastEditDate;
 
   return new datawrap.Bluebird(function (fulfill, reject) {
     var taskList = [{
       'name': 'Read source',
-      'task': request,
+      'task': request.getAsync,
       'params': [sourceUrl + '?f=pjson']
     }, {
       // Query the service
@@ -48,39 +48,56 @@ var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl
       }
     };
 
-    request(tools.buildUrlQuery(sourceUrl + 'query?', queries.getCount)).then(function (countResult) {
-      var requests = [];
-      var count = JSON.parse(countResult.body).count;
-      for (var i = 0; i < count; i += queries.baseQuery.resultRecordCount) {
-        queries.baseQuery.resultOffset = i;
-        requests.push(tools.buildUrlQuery(sourceUrl + 'query?', queries.baseQuery));
-      }
-      datawrap.runList(requests.map(function (req) {
-        return {
-          'name': 'Query ' + req,
-          'task': request,
-          'params': [req]
-        };
-      })).then(function (baseResults) {
-        var esriJson = JSON.parse(baseResults[0].body);
+    request.getAsync(tools.buildUrlQuery(sourceUrl + 'query?', queries.getCount)).then(function (countResult) {
+      var body = JSON.parse(countResult.body);
+      if (!body.error) {
+        var requests = [];
+        var count = body.count;
+        for (var i = 0; i < count; i += queries.baseQuery.resultRecordCount) {
+          queries.baseQuery.resultOffset = i;
+          requests.push(tools.buildUrlQuery(sourceUrl + 'query?', queries.baseQuery));
+        }
+        datawrap.runList(requests.map(function (req) {
+          return {
+            'name': 'Query ' + req,
+            'task': request.getAsync,
+            'params': [req]
+          };
+        })).then(function (baseResults) {
+          var esriJson = JSON.parse(baseResults[0].body);
+          var sr = (esriJson.spatialReference && (esriJson.spatialReference.latestWkid || esriJson.spatialReference.wkid)) || queries.baseResult.outSR;
 
-        esriJson.features = [];
-        baseResults.forEach(function (baseResult) {
-          JSON.parse(baseResult.body).features.forEach(function (row) {
-            esriJson.features.push(row);
+          esriJson.features = [];
+          baseResults.forEach(function (baseResult) {
+            JSON.parse(baseResult.body).features.forEach(function (row) {
+              esriJson.features.push(row);
+            });
           });
-        });
 
-        var geoJson = esriToGeoJson(esriJson, {
-          'sr': (esriJson.spatialReference && (esriJson.spatialReference.latestWkid || esriJson.spatialReference.wkid)) || queries.baseResult.outSR,
-          'idAttribute': sourceInfo.primaryKey
-        });
+          var geoJson = esriToGeoJson(esriJson, {
+            'sr': sr,
+            'idAttribute': sourceInfo.primaryKey
+          });
 
-        sourceInfo.data = JSON.stringify(geoJson);
-        fulfill(sourceInfo);
-      }).catch(function (e) {
-        reject(tools.arrayify(e)[tools.arrayify(e).length - 1]);
-      });
+          // Really make sure we put the right spatial reference here
+          geoJson.crs = geoJson.crs || {
+              'type': 'name',
+              'properties': {
+                'name': 'EPSG:' + sr
+              }
+          };
+          geoJson.crs.properties = geoJson.crs.properties || {
+              'name': 'EPSG:' + sr
+          };
+
+          sourceInfo.data = JSON.stringify(geoJson);
+          fulfill(sourceInfo);
+        }).catch(function (e) {
+          reject(tools.arrayify(e)[tools.arrayify(e).length - 1]);
+        });
+      } else {
+        reject(new Error(body.error.code + ' ' + body.error.message + ' ' + body.error.details));
+      }
     });
   });
 };
