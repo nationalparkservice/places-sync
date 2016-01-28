@@ -70,5 +70,5 @@ module.exports = function (whereObj, availableColumns) {
   };
 
   var finalStatements = addStatements(whereObj);
-  return finalStatements.length ? [join(finalStatements), whereReplacers] : undefined;
+  return finalStatements.length ? [join(finalStatements), whereReplacers] : [undefined, whereReplacers];
 };
