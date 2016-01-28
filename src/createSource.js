@@ -17,23 +17,12 @@ module.exports = tools.syncPromise(function (source, database) {
       key = key.map(function (k) {
         return k.toString();
       });
-      var sql = 'SELECT ';
-      sql += '"' + columns.join('", "') + '" ';
-      sql += 'FROM "' + tableName + '" ';
-      sql += 'WHERE ';
-      sql += '(' + primaryKey.map(function (k, i) {
-        return '"' + k + '" = {{key.' + i + '}}';
-      }).join(' AND ') + ')';
-      sql += ';';
-      return new (Mockingbird(callback))(function (fulfill, reject) {
-        database.runQuery(sql, {
-          'key': key
-        }).then(function (res) {
-          fulfill(res[0]);
-        }).catch(function (e) {
-          reject(tools.readError(e));
-        });
+      var primaryKeyQuery = {};
+      primaryKey.forEach(function(k, i) {
+        primaryKeyQuery[k] = key[i];
       });
+
+      return createSource.getDataWhere(primaryKeyQuery, callback);
     },
     'getData': function (fromDate, callback) {
       var dateQuery;
@@ -54,9 +43,8 @@ module.exports = tools.syncPromise(function (source, database) {
         sql += ' FROM "';
         sql += tableName;
         sql += '"';
-        var parsedWhereObj = whereObj ? createWhereClause(whereObj) : [];
+        var parsedWhereObj = whereObj ? createWhereClause(whereObj, columns) : [];
         sql += parsedWhereObj[0] ? ' WHERE ' + parsedWhereObj[0] + ';' : ';';
-        console.log('sql', sql, parsedWhereObj[1] || {});
         database.runQuery(sql, parsedWhereObj[1] || {}).then(function (result) {
           fulfill(result[0]);
         }).catch(function (e) {
