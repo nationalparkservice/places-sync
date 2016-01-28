@@ -1,9 +1,13 @@
 var fs = require('fs');
 var path = require('path');
+var md5 = require('./md5');
 
 var tools = module.exports = {
   arrayify: function (value) {
     return Array.isArray(value) ? value : [value];
+  },
+  dearrayify: function (value) {
+    return Array.isArray(value) && value.length === 1 ? value[0] : value;
   },
   getJsType: function (value) {
     return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
@@ -176,5 +180,33 @@ var tools = module.exports = {
       }
     };
     return transforms[type] ? transforms[type](input) : input.toString();
+  },
+  groupAndRank: function (data, groupBy, rank, returnArrayOf) {
+    // If return Arrays is true, it will return only three values in the object
+    // { groupBy:, rank: {returnArrayOf}: [] }
+    var newArray = [];
+    var i, filtered, dups;
+    data = JSON.parse(JSON.stringify(data));
+    for (i = data.length - 1; i >= 0; i--) {
+      if (tools.simplifyArray(newArray, groupBy).indexOf(data[i][groupBy]) === -1) {
+        filtered = data.filter(function (a) {
+          return a[groupBy] === data[i][groupBy];
+        });
+        dups = filtered.sort(function (a, b) {
+          return a[rank] - b[rank];
+        })[0];
+        if (returnArrayOf) {
+          tools.arrayify(returnArrayOf).map(function (field) {
+            dups[field] = filtered.filter(function (value) {
+              return value[rank] === dups[rank];
+            }).map(function (innerValues) {
+              return innerValues[field];
+            });
+          });
+        }
+        newArray.push(dups);
+      }
+    }
+    return newArray;
   }
 };
