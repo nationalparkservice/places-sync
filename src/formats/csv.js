@@ -29,7 +29,10 @@ module.exports = function (source) {
           };
         });
 
-        fulfill(csvInfo);
+        source.data = csvInfo.data;
+        source.columns = csvInfo.columns;
+
+        fulfill(source);
       } else {
         e.name = 'Cannot parse CSV data ' + e.name;
         reject(e);
