@@ -1,6 +1,5 @@
 var fs = require('fs');
 var path = require('path');
-var md5 = require('./md5');
 
 var tools = module.exports = {
   arrayify: function (value) {
@@ -8,6 +7,18 @@ var tools = module.exports = {
   },
   dearrayify: function (value) {
     return Array.isArray(value) && value.length === 1 ? value[0] : value;
+  },
+  denullify: function (obj, otherRejections) {
+    // Removes nulls or undefined from objects
+    var newObj = {};
+    var rejectTypes = [null, undefined];
+    rejectTypes.concat(otherRejections);
+    for (var field in obj) {
+      if (rejectTypes.indexOf(obj[field]) === -1 && obj.hasOwnProperty(field)) {
+        newObj[field] = obj[field];
+      }
+    }
+    return newObj;
   },
   getJsType: function (value) {
     return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
