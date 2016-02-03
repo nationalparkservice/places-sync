@@ -14,7 +14,7 @@
     "lz-string": "1.4.4",
     "proj4js-defs": "0.0.1",
     "reproject": "1.0.0",
-    "request": "2.67.0",
+    "superagent": "1.7.2",
     "tape": "4.4.0",
     "terraformer-arcgis-parser": "1.0.4"
   },
