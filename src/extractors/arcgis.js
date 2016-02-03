@@ -1,6 +1,6 @@
 var terraformer = require('terraformer-arcgis-parser');
 var datawrap = require('datawrap');
-var request = datawrap.Bluebird.promisifyAll(require('request'));
+var superagent = datawrap.Bluebird.promisifyAll(require('superagent'));
 var tools = require('../tools');
 
 module.exports = function (source, regexps) {
@@ -11,7 +11,7 @@ module.exports = function (source, regexps) {
   return new datawrap.Bluebird(function (fulfill, reject) {
     var taskList = [{
       'name': 'Read source',
-      'task': request.getAsync,
+      'task': superagent.getAsync,
       'params': [sourceUrl + '?f=pjson']
     }, {
       // Query the service
@@ -48,11 +48,11 @@ var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl
       }
     };
 
-    request.getAsync(tools.buildUrlQuery(sourceUrl + 'query?', queries.getCount)).then(function (countResult) {
-      var body = JSON.parse(countResult.body);
-      if (!body.error) {
+    superagent.getAsync(tools.buildUrlQuery(sourceUrl + 'query?', queries.getCount)).then(function (countResultRaw) {
+      var countResult = JSON.parse(countResultRaw.text);
+      if (!countResult.error) {
         var requests = [];
-        var count = body.count;
+        var count = countResult.count;
         for (var i = 0; i < count; i += queries.baseQuery.resultRecordCount) {
           queries.baseQuery.resultOffset = i;
           requests.push(tools.buildUrlQuery(sourceUrl + 'query?', queries.baseQuery));
@@ -60,16 +60,16 @@ var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl
         datawrap.runList(requests.map(function (req) {
           return {
             'name': 'Query ' + req,
-            'task': request.getAsync,
+            'task': superagent.getAsync,
             'params': [req]
           };
         })).then(function (baseResults) {
-          var esriJson = JSON.parse(baseResults[0].body);
+          var esriJson = JSON.parse(baseResults[0].text);
           var sr = (esriJson.spatialReference && (esriJson.spatialReference.latestWkid || esriJson.spatialReference.wkid)) || queries.baseResult.outSR;
 
           esriJson.features = [];
           baseResults.forEach(function (baseResult) {
-            JSON.parse(baseResult.body).features.forEach(function (row) {
+            JSON.parse(baseResult.text).features.forEach(function (row) {
               esriJson.features.push(row);
             });
           });
@@ -81,13 +81,13 @@ var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl
 
           // Really make sure we put the right spatial reference here
           geoJson.crs = geoJson.crs || {
-              'type': 'name',
-              'properties': {
-                'name': 'EPSG:' + sr
-              }
+            'type': 'name',
+            'properties': {
+              'name': 'EPSG:' + sr
+            }
           };
           geoJson.crs.properties = geoJson.crs.properties || {
-              'name': 'EPSG:' + sr
+            'name': 'EPSG:' + sr
           };
 
           sourceInfo.data = JSON.stringify(geoJson);
@@ -96,7 +96,7 @@ var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl
           reject(tools.arrayify(e)[tools.arrayify(e).length - 1]);
         });
       } else {
-        reject(new Error(body.error.code + ' ' + body.error.message + ' ' + body.error.details));
+        reject(new Error(countResult.error.code + ' ' + countResult.error.message + ' ' + countResult.error.details));
       }
     });
   });
@@ -137,8 +137,8 @@ var esriToGeoJson = function (esriJson, options) {
   return geojson;
 };
 
-var getSourceInfo = function (originalSource, sourceData, sourceUrl) {
-  sourceData = JSON.parse(sourceData.body);
+var getSourceInfo = function (originalSource, sourceDataRaw, sourceUrl) {
+  sourceData = JSON.parse(sourceDataRaw.text);
   var predefinedColumns = tools.desimplifyArray(originalSource.columns);
   var sourceInfo = {
     'columns': [],
