@@ -1,11 +1,11 @@
 var Bluebird = require('datawrap').Bluebird;
-var request = Bluebird.promisifyAll(require('request'));
+var superagent = Bluebird.promisifyAll(require('superagent'));
 
 module.exports = function (source) {
   return new Bluebird(function (fulfill, reject) {
-    request.getAsync(source.data).then(function (response) {
+    superagent.getAsync(source.data).then(function (response) {
       if (response.statusCode === 200) {
-        fulfill(response.body);
+        fulfill(response.text);
       } else {
         reject(new Error('Invalid response code: ' + response.statusCode));
       }
