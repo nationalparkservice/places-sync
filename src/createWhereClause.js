@@ -10,6 +10,8 @@ module.exports = function (whereObj, availableColumns) {
     'lt': '<',
     'lte': '<=',
     'ne': '!=',
+    'eqNull': 'IS',
+    'neNull': 'IS NOT',
     'like': 'LIKE'
   };
   var join = function (statementsToJoin, orJoin) {
@@ -22,6 +24,9 @@ module.exports = function (whereObj, availableColumns) {
   var createStatement = function (field, operator, value) {
     var valueMd5 = md5(tools.normalizeTypes(value) + tools.getJsType(value));
     whereReplacers[valueMd5] = value;
+    if (value === null && (operators[operator + 'Null'])) {
+      operator = operator + 'Null';
+    }
     if (!availableColumns || availableColumns.indexOf(field) > -1) {
       return '"' + field + '" ' + operator + ' {{' + valueMd5 + '}}';
     } else {
