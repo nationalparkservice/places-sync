@@ -12,11 +12,14 @@
     "csv": "0.4.6",
     "datawrap": "git+https://github.com/jimmyrocks/datawrap#sqlite",
     "lz-string": "1.4.4",
+    "oauth": "0.9.14",
     "proj4js-defs": "0.0.1",
     "reproject": "1.0.0",
     "superagent": "1.7.2",
+    "superagent-oauth": "0.2.3",
     "tape": "4.4.0",
-    "terraformer-arcgis-parser": "1.0.4"
+    "terraformer-arcgis-parser": "1.0.4",
+    "xmljs_trans_js": "git+https://github.com/nationalparkservice/xmljs_trans_js.git#master"
   },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",
   "keywords": ["nps", "postgres", "cartodb"],
