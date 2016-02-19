@@ -48,7 +48,7 @@ var tools = module.exports = {
     }), null, 2).replace(/\\n/g, '\n');
   },
   readError: function (errorArray, type) {
-    // Will look for any type over than an array, since that wouldn't work
+    // Will look for any type other than an array, since that wouldn't work
     type = (type && type.toLowerCase()) || 'error';
     if (type === 'array') {
       return;
@@ -68,7 +68,7 @@ var tools = module.exports = {
         }
       }
     }
-    return;
+    return errorArray;
   },
   addTitles: function (titles, data) {
     var returnValue = {};
@@ -89,7 +89,7 @@ var tools = module.exports = {
     return value ? type : maxType;
   },
   requireDirectory: function (directory) {
-    var regexp = new RegExp('(.+?)\.js$');
+    var regexp = new RegExp('(.+?)\.js(on)?$');
     var returnValue = [];
     fs.readdirSync(directory).forEach(function (file) {
       var match = file.match(regexp);
