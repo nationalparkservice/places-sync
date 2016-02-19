@@ -90,7 +90,7 @@ var tools = module.exports = {
   },
   requireDirectory: function (directory) {
     var regexp = new RegExp('(.+?)\.js(on)?$');
-    var returnValue = [];
+    var returnValue = {};
     fs.readdirSync(directory).forEach(function (file) {
       var match = file.match(regexp);
       if (match) {
