@@ -1,6 +1,8 @@
 var terraformer = require('terraformer-arcgis-parser');
 var datawrap = require('datawrap');
-var superagent = datawrap.Bluebird.promisifyAll(require('superagent'));
+var runList = datawrap.runList;
+var Bluebird = datawrap.Bluebird;
+var superagent = require('superagent');
 var tools = require('../tools');
 
 module.exports = function (source, regexps) {
@@ -8,11 +10,13 @@ module.exports = function (source, regexps) {
   sourceUrl += sourceUrl.substr(-1) === '/' ? '' : '/';
   var lastEditDate = source.lastEditDate;
 
-  return new datawrap.Bluebird(function (fulfill, reject) {
+  return new Bluebird(function (fulfill, reject) {
     var taskList = [{
       'name': 'Read source',
-      'task': superagent.getAsync,
-      'params': [sourceUrl + '?f=pjson']
+      'task': getAsync,
+      'params': [sourceUrl, {
+        'f': 'json'
+      }]
     }, {
       // Query the service
       'name': 'Query service',
@@ -20,7 +24,7 @@ module.exports = function (source, regexps) {
       'params': [source, '{{Read source}}', lastEditDate, sourceUrl]
     }];
 
-    datawrap.runList(taskList).then(function (result) {
+    runList(taskList).then(function (result) {
       fulfill(result[result.length - 1]);
     }).catch(function (error) {
       reject(error[error.length - 1]);
@@ -29,7 +33,7 @@ module.exports = function (source, regexps) {
 };
 
 var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl) {
-  return new datawrap.Bluebird(function (fulfill, reject) {
+  return new Bluebird(function (fulfill, reject) {
     var sourceInfo = getSourceInfo(originalSource, sourceData, sourceUrl);
     var queries = {
       'getCount': {
@@ -48,20 +52,20 @@ var queryService = function (originalSource, sourceData, lastEditDate, sourceUrl
       }
     };
 
-    superagent.getAsync(tools.buildUrlQuery(sourceUrl + 'query?', queries.getCount)).then(function (countResultRaw) {
+    getAsync(sourceUrl + 'query', queries.getCount).then(function (countResultRaw) {
       var countResult = JSON.parse(countResultRaw.text);
       if (!countResult.error) {
         var requests = [];
         var count = countResult.count;
         for (var i = 0; i < count; i += queries.baseQuery.resultRecordCount) {
           queries.baseQuery.resultOffset = i;
-          requests.push(tools.buildUrlQuery(sourceUrl + 'query?', queries.baseQuery));
+          requests.push([sourceUrl + 'query', queries.baseQuery]);
         }
-        datawrap.runList(requests.map(function (req) {
+        runList(requests.map(function (req) {
           return {
             'name': 'Query ' + req,
-            'task': superagent.getAsync,
-            'params': [req]
+            'task': getAsync,
+            'params': req
           };
         })).then(function (baseResults) {
           var esriJson = JSON.parse(baseResults[0].text);
@@ -138,7 +142,7 @@ var esriToGeoJson = function (esriJson, options) {
 };
 
 var getSourceInfo = function (originalSource, sourceDataRaw, sourceUrl) {
-  sourceData = JSON.parse(sourceDataRaw.text);
+  var sourceData = JSON.parse(sourceDataRaw.text);
   var predefinedColumns = tools.desimplifyArray(originalSource.columns);
   var sourceInfo = {
     'columns': [],
@@ -176,10 +180,29 @@ var getSourceInfo = function (originalSource, sourceDataRaw, sourceUrl) {
     column.type = column.type || parseEsriType(field.type);
     sourceInfo.columns.push(column);
   });
+
+  // We are also adding a geometry column to the table now
+  sourceInfo.columns.push({
+    'name': 'geometry',
+    'type': 'text',
+    'esriType': 'json'
+  });
   for (var field in sourceInfo) {
     originalSource[field] = originalSource[field] || sourceInfo[field];
   }
   return originalSource;
+};
+
+var getAsync = function (url, query) {
+  return new Bluebird(function (fulfill, reject) {
+    superagent.get(url).query(query).end(function (err, res) {
+      if (err) {
+        reject(err);
+      } else {
+        fulfill(res);
+      }
+    });
+  });
 };
 
 var parseEsriType = function (esriType) {

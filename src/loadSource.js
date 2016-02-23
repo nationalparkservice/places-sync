@@ -7,7 +7,7 @@ var transformData = require('./transformData');
 var loadData = require('./loadData');
 var createSource = require('./createSource');
 
-module.exports = function (name, source, regexps, dataDirectory, database) {
+module.exports = function (name, source, regexps, dataDirectory, wrappedDatabase) {
   return new datawrap.Bluebird(function (fulfill, reject) {
     // If the data field is a file, url, or custom, we need to fill that in, otherwise we can skip to parsing it
     var type;
@@ -35,12 +35,12 @@ module.exports = function (name, source, regexps, dataDirectory, database) {
       // Add the task to import the data to sqlite
       'name': 'Load ' + source.name,
       'task': loadData,
-      'params': ['{{Transform ' + source.name + '}}', database]
+      'params': ['{{Transform ' + source.name + '}}', wrappedDatabase]
     }, {
       // Add the task to import the data to sqlite
       'name': 'Create source ' + source.name,
       'task': createSource,
-      'params': [source, database]
+      'params': [source, wrappedDatabase]
     }];
 
     datawrap.runList(taskList).then(function (r) {

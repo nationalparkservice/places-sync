@@ -24,8 +24,12 @@ module.exports = function (whereObj, availableColumns) {
   var createStatement = function (field, operator, value) {
     var valueMd5 = md5(tools.normalizeTypes(value) + tools.getJsType(value));
     whereReplacers[valueMd5] = value;
-    if (value === null && (operators[operator + 'Null'])) {
-      operator = operator + 'Null';
+    if (value === null) {
+      if (operator === '=') {
+        operator = 'IS';
+      } else if (operator === '!=') {
+        operator = 'IS NOT';
+      }
     }
     if (!availableColumns || availableColumns.indexOf(field) > -1) {
       return '"' + field + '" ' + operator + ' {{' + valueMd5 + '}}';

@@ -15,7 +15,7 @@ module.exports = function (config, options, defaults) {
   var sources = {};
   var sourcesLoaded = false;
 
-  return {
+  var wrappedDatabase = {
     'addData': function (source, callback) {
       // Imports the data from an object containing
       // the following information: (name and data are the only required field)
@@ -31,7 +31,7 @@ module.exports = function (config, options, defaults) {
         } else if (sources[source.name]) {
           reject(new Error('Data source with name: ' + source.name + ' already exists'));
         } else {
-          loadSource(source.name, source, config.regexps, config.dataDirectory, database).then(function (result) {
+          loadSource(source.name, source, config.regexps, config.dataDirectory, wrappedDatabase).then(function (result) {
             sources[source.name] = result;
             fulfill(result); // TODO return something better!
           }).catch(function (error) {
@@ -50,18 +50,21 @@ module.exports = function (config, options, defaults) {
         });
       });
     },
-    '_runQuery': function (query, callback) {
+    '_runQuery': function (query, params, options, callback) {
+      callback = (!callback && typeof params === 'function') ? params : callback;
       return new (Mockingbird(callback))(function (fulfill, reject) {
-        database.runQuery(query).then(fulfill).catch(function (e) {
+        database.runQuery(query, params, options).then(function (r) {
+          fulfill(r);
+        }).catch(function (e) {
           reject(tools.readError(e));
         });
       });
     },
     'load': function (callback) {
-      // Loads the databases soecified in the config
+      // Loads the databases specific in the config
       return new (Mockingbird(callback))(function (fulfill, reject) {
         if (!sourcesLoaded) {
-          loadSources(config.data, config.regexps, config.dataDirectory, database).then(function (result) {
+          loadSources(config.data, config.regexps, config.dataDirectory, wrappedDatabase).then(function (result) {
             sourcesLoaded = true;
             result.forEach(function (source) {
               sources[source.name] = source;
@@ -75,8 +78,13 @@ module.exports = function (config, options, defaults) {
     },
     'sources': sources,
     'database': database,
-    'name': config.name
+    'name': config.name,
+    '_config': function () {
+      return JSON.parse(JSON.stringify(config));
+    }
   };
+
+  return wrappedDatabase;
 };
 
 var buildConfig = function (config, options, defaults) {

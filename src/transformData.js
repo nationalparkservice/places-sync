@@ -1,5 +1,5 @@
 var tools = require('./tools');
-var formats = tools.requireDirectory(__dirname + '/formats');
+var transformers = tools.requireDirectory(__dirname + '/transformers');
 var guessFormat = require('./guessFormat');
 
 module.exports = function (source, data) {
@@ -12,8 +12,8 @@ module.exports = function (source, data) {
     source.data = data.toString();
   }
   var dataFormat = source.format || guessFormat(source.data);
-  if (formats[dataFormat]) {
-    return formats[dataFormat](source);
+  if (transformers[dataFormat]) {
+    return transformers[dataFormat](source);
   } else {
     return (tools.syncPromise(function () {
       return new Error('data format: ' + dataFormat + ' is not supported');

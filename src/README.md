@@ -39,5 +39,12 @@ You can then query for all the data in a hashed form
 `source.getHashedDate(fromDateUTCTimestamp, callback);`
 or for data with a specific primary key
 `source.getRow(ValueOfPrimaryLey, callback);`
+getRow will only return one record
+
+`source.getDataWhere(whereObject, callback);`
+getDataWhere allows you to specify a where object using syntax from sequelizejs
+
+`source.getData(fromDate, callback);`
+getData will get all data since a timestamp, if no timestamp is specified, it will just get all data
 
 If a `callback` is omitted in any of these functions, a Bluebird promise will be returned instead.
