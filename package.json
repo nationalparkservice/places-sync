@@ -1,0 +1,34 @@
+{
+  "contributors": [{
+    "name": "Jim McAndrew",
+    "email": "james_mcandrew@partner.nps.gov"
+  }, {
+    "name": "Nate Irwin",
+    "email": "nate_irwin@nps.gov"
+  }],
+  "dependencies": {
+    "bluebird": "3.3.3",
+    "csv": "0.4.6",
+    "fandlebars": "git+https://github.com/jimmyrocks/fandlebars#master",
+    "immutable": "3.7.6",
+    "minimist": "1.2.0",
+    "sqlite3": "3.1.1",
+    "tape": "4.4.0",
+    "xmljs_trans_js": "git+https://github.com/jimmyrocks/xmljs_trans_js.git#master"
+  },
+  "description": "A node app that synchronizes data from multiple sources to the Places database.",
+  "keywords": ["nps", "postgres", "cartodb"],
+  "author": "Jim McAndrew <james_mcandrew@partner.nps.gov>",
+  "license": "Public Domain",
+  "main": "app.js",
+  "name": "places-sync",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/nationalparkservice/places-sync"
+  },
+  "scripts": {
+    "start": "node app",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "version": "0.0.1"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "sourceA",
+  "description": "The test source CSV file",
+  "connection": {
+    "type": "csv",
+    "filePath": "{{env.PWD}}/test/data/sourceA.csv"
+  },
+  "primaryKey": "key",
+  "lastUpdate": "lastUpdate"
+}
