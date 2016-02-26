@@ -1,5 +1,6 @@
 // Load that csv
 var sources = require('./sources');
+var iterateTasks = require('./tools/iterateTasks');
 
 var csvConfig = {
   'connection': {
@@ -8,12 +9,21 @@ var csvConfig = {
   }
 };
 var thrower = function (e) {
-  throw e;
+  throw Array.isArray(e) ? e[e.length = 1] : e;
 };
 
 sources(csvConfig).then(function (source) {
-  console.log(source);
-  source.selectAll().then(console.log).catch(thrower);
+  var tasks = [{
+    'name': 'selectAll',
+    'task': source.selectAll,
+    'params': []
+  }, {
+    'name': 'selectLastUpdate',
+    'task': source.selectLastUpdate,
+    'params': []
+  }];
+
+  iterateTasks(tasks, 'test', true).then(console.log).catch(thrower);
 }).catch(function (e) {
   throw Array.isArray(e) ? e[e.length - 1] : e;
 });
