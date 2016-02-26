@@ -44,10 +44,10 @@ module.exports = function (data, columns, sourceConfig) {
 
     // Create an 'INSERT INTO' statement for the sqlite database
     var insertStatement = 'INSERT INTO source (' + tools.simplifyArray(columns).map(function (c) {
-        return '"' + c + '"';
-      }).join(', ') + ') VALUES (' + tools.simplifyArray(columns).map(function (c) {
-        return '{{' + c + '}}';
-      }).join(', ') + ')';
+      return '"' + c + '"';
+    }).join(', ') + ') VALUES (' + tools.simplifyArray(columns).map(function (c) {
+      return '{{' + c + '}}';
+    }).join(', ') + ')';
 
     var taskList = [{
       'name': 'Create Database',
