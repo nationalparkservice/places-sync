@@ -2,28 +2,63 @@ var tools = require('../../tools');
 var Promise = require('bluebird');
 var database = require('../../databases');
 
-var getColumnInfo = function (data) {
+var getColumnInfo = function (data, existingColumns) {
   // Figure out what the columns are
-  var columns = [];
+  // Fill in any values that we didn't have before
+  // If there defined columns, use only columns that aren in the defined list
+  var newColumns = [];
+  var defaultValues = {};
   data.forEach(function (row) {
     for (var column in row) {
-      var columnIndex = tools.simplifyArray(columns).indexOf(column) > -1 ? tools.simplifyArray(columns).indexOf(column) : columns.push({
+      var columnIndex = tools.simplifyArray(newColumns).indexOf(column) > -1 ? tools.simplifyArray(newColumns).indexOf(column) : newColumns.push({
         'name': column,
         'nativeType': tools.getJsType(row[column])
       }) - 1;
-      column[columnIndex].sqliteType = tools.getDataType(row[column], column[columnIndex].sqliteType || 'integer', column[columnIndex].nativeType);
+      // Define the type we're going to use for SQLite
+      newColumns[columnIndex].sqliteType = tools.getDataType(row[column], newColumns[columnIndex].sqliteType || 'integer', newColumns[columnIndex].nativeType);
+      // If every value in the table for a single column is the same, we'll assume that to be the default
+      if (defaultValues[column]) {
+        console.log('dv', column, defaultValues[column].hasDefault, defaultValues[column].firstValue === row[column], defaultValues[column].firstValue, row[column]);
+        defaultValues[column].hasDefault = defaultValues[column].hasDefault && defaultValues[column].firstValue === row[column];
+      } else {
+        defaultValues[column] = {
+          'hasDefault': true,
+          'firstValue': row[column]
+        };
+      }
     }
   });
-  return columns;
+  console.log('dv2', defaultValues);
+
+  // Add in the default values if there are any
+  newColumns = newColumns.map(function (c) {
+    if (defaultValues[c.name].hasDefault === true) {
+      c.defaultValue = defaultValues[c.name].firstValue;
+    }
+    return c;
+  });
+
+  // If there defined columns, use only columns that aren in the defined list
+  if (existingColumns) {
+    newColumns = existingColumns.map(function (c) {
+      var matchedColumn = newColumns.filter(function (nc) {
+        return nc.name === c.name;
+      })[0] || {};
+      c.sqliteType = c.sqliteType || matchedColumn.sqliteType;
+      c.defaultValue = c.defaultValue || matchedColumn.defaultValue;
+      return tools.denullify(c, true, [undefined]);
+    });
+  }
+  return newColumns;
 };
 
 var wrapFn = function (fn, args) {
   return fn.apply(this, args);
 };
 
-module.exports = function (data, columns, sourceConfig) {
+module.exports = function (data, existingColumns, sourceConfig) {
   return new Promise(function (fulfill, reject) {
-    columns = columns || getColumnInfo(data);
+    var columns = getColumnInfo(data, existingColumns);
 
     var tempDbConfig = {
       'type': 'sqlite',
