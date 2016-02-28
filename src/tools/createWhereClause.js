@@ -67,8 +67,20 @@ module.exports = function (whereObj, availableColumns) {
                   tmp2[field] = secondWhereObj;
                   return tmp2;
                 });
-                statements.push(addStatements(tmp));
+              } else if (typeof innerWhereObj[field][operator] === 'object') {
+                tmp = [];
+                for (var secondWhereObjIdx in innerWhereObj[field][operator]) {
+                  var tmp2 = {};
+                  var tmp3 = {};
+                  tmp3[secondWhereObjIdx] = innerWhereObj[field][operator][secondWhereObjIdx];
+                  tmp2[field] = tmp3;
+                  tmp.push(tmp2);
+                }
+                tmp = {
+                  '$or': tmp
+                };
               }
+              statements.push(addStatements(tmp));
             }
           }
         } else {
