@@ -21,6 +21,10 @@ sources(csvConfig).then(function (source) {
     'name': 'selectLastUpdate',
     'task': source.selectLastUpdate,
     'params': []
+  }, {
+    'name': 'describe',
+    'task': source.describe,
+    'params': []
   }];
 
   iterateTasks(tasks, 'test', true).then(console.log).catch(thrower);
