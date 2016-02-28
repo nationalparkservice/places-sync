@@ -18,7 +18,6 @@ var getColumnInfo = function (data, existingColumns) {
       newColumns[columnIndex].sqliteType = tools.getDataType(row[column], newColumns[columnIndex].sqliteType || 'integer', newColumns[columnIndex].nativeType);
       // If every value in the table for a single column is the same, we'll assume that to be the default
       if (defaultValues[column]) {
-        console.log('dv', column, defaultValues[column].hasDefault, defaultValues[column].firstValue === row[column], defaultValues[column].firstValue, row[column]);
         defaultValues[column].hasDefault = defaultValues[column].hasDefault && defaultValues[column].firstValue === row[column];
       } else {
         defaultValues[column] = {
@@ -28,7 +27,6 @@ var getColumnInfo = function (data, existingColumns) {
       }
     }
   });
-  console.log('dv2', defaultValues);
 
   // Add in the default values if there are any
   newColumns = newColumns.map(function (c) {
