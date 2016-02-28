@@ -1,11 +1,14 @@
-module.exports = function (obj, otherRejections) {
+var denullify = module.exports = function (obj, recursive, otherRejections) {
   // Removes nulls or undefined from objects
   var newObj = {};
-  var rejectTypes = [null, undefined];
-  rejectTypes.concat(otherRejections);
+  var rejectTypes = otherRejections || [null, undefined];
   for (var field in obj) {
     if (rejectTypes.indexOf(obj[field]) === -1 && obj.hasOwnProperty(field)) {
-      newObj[field] = obj[field];
+      if (recursive && typeof obj[field] === 'object' && !Array.isArray(obj[field])) {
+        newObj[field] = denullify(obj[field]);
+      } else {
+        newObj[field] = obj[field];
+      }
     }
   }
   return newObj;
