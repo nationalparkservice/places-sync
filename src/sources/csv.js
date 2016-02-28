@@ -19,32 +19,12 @@ var readCsv = function (data) {
       if (e) {
         reject(e);
       } else {
-        // Set the maxType (most restrictive) value type to integer for each column
-        var maxTypes = r[0].map(function () {
-          return 'integer';
-        });
-
-        // Remove the first row, which should be headers
-        jsonData = r.slice(1);
-
-        // Go through each row and determine the actual datatype
-        jsonData.forEach(function (row) {
-          row.forEach(function (column, index) {
-            maxTypes[index] = tools.getDataType(column, maxTypes[index]);
-          });
-        });
-
-        // Now that we know that the sqlite types are, we should cast our values to those types
-        jsonData = jsonData.map(function (row) {
-          return row.map(function (column, index) {
-            return tools.normalizeToType(column, maxTypes[index] === 'text' ? 'string' : 'number');
-          });
-        });
+       // // Remove the first row, which should be headers
+        jsonData = r.slice(1) || [];
 
         columns = r[0].map(function (name, index) {
           return {
             'name': name,
-            'sqliteType': maxTypes[index],
             'nativeType': 'text'
           };
         });
