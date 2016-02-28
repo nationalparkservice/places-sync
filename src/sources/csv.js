@@ -8,6 +8,7 @@ var Promise = require('bluebird');
 var csv = require('csv');
 var Immutable = require('immutable');
 var tools = require('../tools');
+var castToSqliteType = require('./helpers/castToSqliteType');
 var fs = Promise.promisifyAll(require('fs'));
 
 var readCsv = function (data) {
@@ -19,8 +20,8 @@ var readCsv = function (data) {
       if (e) {
         reject(e);
       } else {
-       // // Remove the first row, which should be headers
-        jsonData = r.slice(1) || [];
+        // // Remove the first row, which should be headers
+        jsonData = castToSqliteType(r.slice(1) || []);
 
         columns = r[0].map(function (name, index) {
           return {
