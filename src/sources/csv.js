@@ -72,8 +72,6 @@ module.exports = function (sourceConfig) {
         'data': r[1].data,
         'columns': columns
       });
-    }).catch(function (e) {
-      reject(Array.isArray(e) ? e[e.length - 1] : e);
-    });
+    }).catch(reject);
   });
 };
