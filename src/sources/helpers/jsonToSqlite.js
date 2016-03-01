@@ -68,7 +68,7 @@ module.exports = function (data, existingColumns, sourceConfig) {
       return '"' + column.name + '" ' + column.sqliteType;
     }).join(', ');
     if (sourceConfig.primaryKey && tools.arrayify(sourceConfig.primaryKey).length > 0) {
-      createColumns += 'PRIMAY KEY (' + tools.arrayify(sourceConfig.primaryKey).join(', ') + ')';
+      createColumns += ', PRIMARY KEY (' + tools.surroundValues(tools.arrayify(sourceConfig.primaryKey), '"', '"').join(', ') + ')';
     }
     createColumns += ');';
     var createStatementData = 'CREATE TABLE source ' + createColumns;
@@ -110,8 +110,6 @@ module.exports = function (data, existingColumns, sourceConfig) {
     }];
     tools.iterateTasks(taskList, 'jsonToSqlite').then(function (a) {
       fulfill(tools.arrayGetLast(a, true));
-    }).catch(function (e) {
-      reject(tools.arrayGetLast(e));
-    });
+    }).catch(reject);
   });
 };
