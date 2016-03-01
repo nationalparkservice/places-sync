@@ -3,10 +3,10 @@ var tools = require('../../tools');
 module.exports = function (columns, primaryKey, lastUpdate) {
   var queryKey = tools.arrayify(primaryKey || tools.simplifyArray(columns));
 
-  var arrayToColumns = function (columns, tableName) {
-    return tools.simplifyArray(columns).map(function (c) {
-      return (tableName ? '"' + tableName + '".' : '') + '"' + c + '"';
-    }).join(',');
+  var arrayToColumns = function (columns, tableName, quotes) {
+    quotes = quotes || ['"', '"'];
+    quotes[0] = tableName ? quotes[0] + tableName + quotes[1] + '.' + quotes[0] : quotes[0];
+    return tools.surroundValues(tools.simplifyArray(columns), quotes[0], quotes[1]).join(',');
   };
 
   var arraysToObj = function (keys, values) {
@@ -74,11 +74,23 @@ module.exports = function (columns, primaryKey, lastUpdate) {
       } else {
         return 'SELECT 0 AS "lastUpdate" ';
       }
+    },
+    'cleanUpdate': function () {
+      return 'DELETE FROM "new"';
+    },
+    'runUpdate': function () {
+      return 'INSERT INTO "new" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
+    },
+    'cleanRemove': function () {
+      return 'DELETE FROM "remove"';
+    },
+    'runRemove': function () {
+      return 'INSERT INTO "remove" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
     }
   };
   return function (queryName, values, keys) {
-    var where = createWhereObj(tools.simplifyArray(keys || queryKey), values);
-    var query = queries[queryName]() + ' WHERE ' + where[0];
-    return [query, where[1]];
+    var where = values ? createWhereObj(tools.simplifyArray(keys || queryKey), values) : undefined;
+    var query = queries[queryName]() + (where ? ' WHERE ' + where[0] : ';');
+    return [query, where && where[1]];
   };
 };
