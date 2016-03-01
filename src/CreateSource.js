@@ -66,10 +66,9 @@ module.exports = function (cache) {
         'params': [sourceConfig, '{{sourceDatabase}}', '{{getLastRead}}']
       }];
       tools.iterateTasks(tasks).then(function (r) {
+        console.log('This doesnt appear to work right');
         fulfill(new Source(sourceConfig, r));
-      }).cache(function (e) {
-        reject(tools.arrayGetLast(e));
-      });
+      }).catch(reject);
     });
   };
 };
