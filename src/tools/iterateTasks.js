@@ -28,7 +28,7 @@ var reporter = function (verbose) {
   };
 };
 
-module.exports = function (list, taskName, verbose) {
+module.exports = function (list, taskName, verbose, errorArray) {
   var messages = [];
   var report = reporter(verbose);
   return new Bluebird(function (listResolve, listReject) {
@@ -83,11 +83,12 @@ module.exports = function (list, taskName, verbose) {
 
     if (list.length > 0) {
       exec(list, messages, function (e, r) {
+        var resolveValue;
         if (e) {
-          e.taskName = taskName;
-          listReject(e);
+          resolveValue = Array.isArray(e) && errorArray ? e : e[e.length - 1];
+          resolveValue.taskName = taskName;
+          listReject(resolveValue);
         } else {
-          r.taskName = taskName;
           listResolve(r);
         }
       });
