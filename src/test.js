@@ -5,8 +5,9 @@ var iterateTasks = require('./tools/iterateTasks');
 var csvConfig = {
   'connection': {
     'filePath': __dirname + '/' + 'test.csv',
-    'type': 'csv'
-  }
+    'type': 'csv',
+  },
+  'primaryKey': ['a', 'b']
 };
 var thrower = function (e) {
   throw Array.isArray(e) ? e[e.length = 1] : e;
@@ -25,9 +26,63 @@ sources(csvConfig).then(function (source) {
     'name': 'describe',
     'task': source.describe,
     'params': []
+  }, {
+    'name': 'create',
+    'task': source.modify.create,
+    'params': [{
+      'a': 10,
+      'b': 11,
+      'c': 12,
+      'd': 13,
+      'e': 14,
+      'f': 'fifteen'
+    }]
+  }, {
+    'name': 'selectAll',
+    'task': source.selectAll,
+    'params': []
+  }, {
+    'name': 'remove',
+    'task': source.modify.remove,
+    'params': [{
+      'a': 10,
+      'b': 11
+    }]
+  }, {
+    'name': 'selectAll',
+    'task': source.selectAll,
+    'params': []
+  }, {
+    'name': 'create',
+    'task': source.modify.create,
+    'params': [{
+      'a': 10,
+      'b': 11,
+      'c': 12,
+      'd': 13,
+      'e': 14,
+      'f': 'fifteen'
+    }]
+  }, {
+    'name': 'selectAll',
+    'task': source.selectAll,
+    'params': []
+  }, {
+    'name': 'update',
+    'task': source.modify.update,
+    'params': [{
+      'a': 10,
+      'b': 11,
+      'c': 2,
+      'd': 3,
+      'e': 4,
+      'f': 'five'
+    }]
+  }, {
+    'name': 'selectAll',
+    'task': source.selectAll,
+    'params': []
   }];
 
-  iterateTasks(tasks, 'test', true).then(console.log).catch(thrower);
-}).catch(function (e) {
-  throw Array.isArray(e) ? e[e.length - 1] : e;
-});
+  return iterateTasks(tasks, 'test', true);
+}).then(console.log).catch(thrower);
