@@ -60,9 +60,14 @@ module.exports = function (connectionConfig) {
     query: function (query, params) {
       return new Promise(function (fulfill, reject) {
         var newParams = convertParams(query, params);
+        var newStack = new Error();
         connection.all(newParams.newQuery, newParams.newParams, function (e, r) {
           if (e) {
-            reject(e);
+            var err = new Error(e.message + '\n\terrno: ' + e.errno + '\n\tcode: ' + e.code + '\n');
+            err.stack = err.stack + newStack.stack.replace(/^Error\n/, '\n');
+            err.errno = e.errno;
+            err.code = e.code;
+            reject(err);
           } else {
             fulfill(format(r));
           }
