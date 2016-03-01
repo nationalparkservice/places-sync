@@ -8,8 +8,15 @@ var sources = tools.requireDirectory(__dirname, [__filename]);
 var createDatabase = require('./helpers/jsonToSqlite');
 var CreateQueries = require('./helpers/createQueries');
 
+var promiseError = function (msg) {
+  return new Promise(function (f, r) {
+    r(new Error(msg));
+  });
+};
+
 var verifyKeys = function (row, keys) {
   return new Promise(function (fulfill, reject) {
+    console.log('verify', row, keys);
     keys = tools.arrayify(keys);
     var keyCount = 0;
     for (var column in row) {
@@ -25,21 +32,70 @@ var verifyKeys = function (row, keys) {
 
 var updateObject = function (baseObject, newValues) {
   var key;
-  var newObj;
+  var newObj = {};
   for (key in baseObject) {
     newObj[key] = newValues[key] !== undefined ? newValues[key] : baseObject[key];
   }
   return newObj;
 };
 
+var getDefaults = function (row, columns) {
+  var newRow = {};
+  columns.forEach(function (column) {
+    newRow[column.name] = row[column.name] !== undefined ? row[column.name] : (column.defaultValue === undefined ? null : column.defaultValue);
+  });
+  return newRow;
+};
+
+var getPrimaryKeysOnly = function (primaryKeys, row) {
+  var rowPrimaryKeys = {};
+  primaryKeys.forEach(function (pk) {
+    rowPrimaryKeys[pk] = row[pk];
+  });
+  return rowPrimaryKeys;
+};
+
 var SourceObject = function (database, columns, sourceConfig) {
   // Query based on the primary key(s), or all keys if no primary keys exist
   var createQueries = new CreateQueries(columns, sourceConfig.primaryKey, sourceConfig.lastUpdate);
   var primaryKeys = tools.arrayify(sourceConfig.primaryKey);
+  console.log(primaryKeys, sourceConfig.primaryKey, tools.arrayify(sourceConfig.primaryKey), sourceConfig);
+
+  var updateRow = function (row, remove) {
+    var updatedRowData;
+    return verifyKeys(row, primaryKeys)
+      .then(function () {
+        return actions.selectAll(getPrimaryKeysOnly(primaryKeys, row));
+      })
+      .then(function (results) {
+        return Promise.all(results.map(function (resultRow) {
+          updatedRowData = updateObject(resultRow, row);
+          // Remove any entries for this row in the removes table
+          console.log('cleanRemove', createQueries('cleanRemove', updatedRowData, columns));
+          return database.query.apply(this, createQueries('cleanRemove', updatedRowData, columns))
+            .then(function () {
+              // Remove any entries for this row in the Updates table
+              console.log('cleanUpdate', createQueries('cleanUpdate', updatedRowData, columns));
+              return database.query.apply(this, createQueries('cleanUpdate', updatedRowData, columns));
+            }).then(function () {
+              // Just for debug
+              return database.query.apply(this, createQueries('selectAll', undefined, columns));
+            });
+        })).then(function (res) {
+          // Insert this into the update or remove table
+          console.log('res?', res, remove);
+          var query = createQueries('run' + (remove ? 'Remove' : 'Update'))[0];
+          console.log('We need to make sure we have all columns here populated with their default values');
+          var completeRow = updatedRowData || getDefaults(row, columns);
+          return database.query(query, completeRow);
+        });
+      });
+  };
 
   var actions = {
     'selectAll': function (whereObj) {
       // Selects all fields, if not whereObj is supplied, it will query everything
+      console.log(createQueries('selectAll', whereObj, columns));
       return database.query.apply(this, createQueries('selectAll', whereObj, columns));
     },
     'selectLastUpdate': function (whereObj) {
@@ -70,38 +126,22 @@ var SourceObject = function (database, columns, sourceConfig) {
       'create': function (row) {
         // CHECK IF WE HAVE THIS VALUE IN ALL TABLES
         // IF NOT, INSERT IT TO THE UPDATE TABLE
-        return actions.selectAll(row)
+        return actions.selectAll(getPrimaryKeysOnly(primaryKeys, row))
           .then(function (results) {
             if (results.length > 0) {
-              throw new Error('Cannot create, fields already exist');
+              return promiseError('Cannot create, fields already exist.\n\t create: ' + JSON.stringify(row) + '\n\t existing: ' + JSON.stringify(results));
             } else {
-              // YAY?
-              // I don't know if the promises will work like this, i probably need to wrap it in a promise at least
+              return updateRow(row);
             }
           });
       },
       'update': function (row) {
         // Basically an upsert
-        //
-        // Checks for primarykey violations, and if none, then it will insert
-        return verifyKeys(row, primaryKeys)
-          .then(function () {
-            return actions.selectAll(row);
-          })
-          .then(function (results) {
-            // REMOVE this record from the REMOVE table
-            // INSERT IT TO THE UPDATE TABLE
-            return results.map(function (resultRow) {
-              return createQueries('update', updateObject(resultRow, row), columns);
-            }).all();
-          });
+        return updateRow(row);
       },
       'remove': function (row) {
         // requires all primary keys
-        verifyKeys(row, primaryKeys);
-      // CHECK IF WE HAVE THIS VALUE IN ALL TABLES
-      // IF YES REMOVE this record from the UPDATE table
-      // INSERT IT TO THE REMOVE TABLE
+        return updateRow(row, true);
       }
     }
   };
@@ -127,11 +167,9 @@ module.exports = function (sourceConfig, lastUpdate) {
         'params': ['{{dataToJson.data}}', '{{dataToJson.columns}}', sourceConfig]
       }];
 
-      tools.iterateTasks(taskList).then(function (r) {
+      tools.iterateTasks(taskList, 'create source').then(function (r) {
         fulfill(new SourceObject(tools.arrayGetLast(r), r[0].columns, sourceConfig));
-      }).catch(function (e) {
-        reject(tools.arrayGetLast(e));
-      });
+      }).catch(reject);
     });
   }
 };
