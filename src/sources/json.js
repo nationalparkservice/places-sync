@@ -43,8 +43,6 @@ module.exports = function (sourceConfig) {
         column.lastUpdated = tools.arrayify(sourceConfig.lastUpdated).indexOf(column.name) !== -1;
       });
       fulfill(new DatabaseObject(connection, tableName, columns));
-    }).catch(function (e) {
-      reject(Array.isArray(e) ? e[e.length - 1] : e);
-    });
+    }).catch(reject);
   });
 };
