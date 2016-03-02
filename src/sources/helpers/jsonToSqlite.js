@@ -48,12 +48,12 @@ var getColumnInfo = function (data, existingColumns, sourceConfig) {
     });
   }
   // Add the primaryKey, lastUpdateField, and removedField
-  newColumns = newColumns.map(function (column) {
-    column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
-    column.lastUpdateField = tools.arrayify(sourceConfig.lastUpdateField).indexOf(column.name) !== -1;
-    column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
-    return column;
-  });
+  // newColumns = newColumns.map(function (column) {
+  //   column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
+  //   column.lastUpdateField = tools.arrayify(sourceConfig.lastUpdateField).indexOf(column.name) !== -1;
+  //   column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
+  //   return column;
+  // });
 
   return newColumns;
 };
