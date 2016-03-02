@@ -5,8 +5,10 @@ var iterateTasks = require('./tools/iterateTasks');
 var csvConfig = {
   'connection': {
     'filePath': __dirname + '/' + 'test.csv',
-    'type': 'csv',
+    'type': 'csv'
   },
+  'lastUpdateField': null,
+  'removedField': null,
   'primaryKey': ['a', 'b']
 };
 var thrower = function (e) {
@@ -58,10 +60,10 @@ sources(csvConfig).then(function (source) {
     'params': [{
       'a': 10,
       'b': 11,
-      'c': 12,
-      'd': 13,
-      'e': 14,
-      'f': 'fifteen'
+      'c': 112,
+      'd': 113,
+      'e': 114,
+      'f': 'one hundred fifteen'
     }]
   }, {
     'name': 'selectAll',
@@ -81,6 +83,10 @@ sources(csvConfig).then(function (source) {
   }, {
     'name': 'selectAll',
     'task': source.selectAll,
+    'params': []
+  },{
+    'name': 'close',
+    'task': source.close,
     'params': []
   }];
 
