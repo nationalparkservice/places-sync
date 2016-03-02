@@ -18,6 +18,9 @@ var DatabaseObject = function (database) {
           'params': [query, params]
         };
       }), 'query list');
+    },
+    'close': function () {
+      return database.close();
     }
   };
   return returnObject;
