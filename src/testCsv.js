@@ -84,7 +84,11 @@ sources(csvConfig).then(function (source) {
     'name': 'selectAll',
     'task': source.selectAll,
     'params': []
-  },{
+  }, {
+    'name': 'write out',
+    'task': source.save,
+    'params': []
+  }, {
     'name': 'close',
     'task': source.close,
     'params': []
