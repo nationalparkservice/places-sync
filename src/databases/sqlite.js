@@ -63,7 +63,7 @@ module.exports = function (connectionConfig) {
         var newStack = new Error();
         connection.all(newParams.newQuery, newParams.newParams, function (e, r) {
           if (e) {
-            var err = new Error(e.message + '\n\terrno: ' + e.errno + '\n\tcode: ' + e.code + '\n');
+            var err = new Error(e.message + '\n\terrno: ' + e.errno + '\n\tcode: ' + e.code + '\n\tQuery: ' + newParams.newQuery + '\n\tParams: ' + newParams.newParams + '\n');
             err.stack = err.stack + newStack.stack.replace(/^Error\n/, '\n');
             err.errno = e.errno;
             err.code = e.code;
@@ -74,8 +74,21 @@ module.exports = function (connectionConfig) {
         });
       });
     },
-    close: function() {
-      return connection.close();
+    close: function () {
+      return new Promise(function (fulfill, reject) {
+        var returnValue;
+        var returnError;
+        try {
+          returnValue = connection.close();
+        } catch (e) {
+          returnError = e;
+        }
+        if (returnValue) {
+          fulfill(returnValue);
+        } else {
+          reject(returnError || new Error('Unknown Error'));
+        }
+      });
     }
   };
   return returnObject;
