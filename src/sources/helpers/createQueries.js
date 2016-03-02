@@ -87,11 +87,11 @@ module.exports = function (columns, primaryKey, lastUpdate) {
     'runRemove': function () {
       return 'INSERT INTO "remove" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
     },
-    '_debug.allNew': function () {
-      return 'SELECT * FROM new;';
+    'getUpdated': function () {
+      return 'SELECT ' + arrayToColumns(columns, 'new') + ' FROM new;';
     },
-    '_debug.allRemove': function () {
-      return 'SELECT * FROM remove;';
+    'getRemoved': function () {
+      return 'SELECT ' + arrayToColumns(columns, 'remove') + 'FROM remove;';
     }
   };
   return function (queryName, values, keys) {
