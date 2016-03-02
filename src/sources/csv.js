@@ -13,11 +13,13 @@ var updateJsonSource = require('./helpers/updateJsonSource');
 var fs = Promise.promisifyAll(require('fs'));
 
 var WriteFn = function (data, columns, filePath, fileEncoding) {
+  // TODO: instead of passing data back in, we could just read it from the file again
+  // That way we could take it out of memory
   return function (updated, removed) {
     return new Promise(function (fulfill, reject) {
-      updateJsonSource(data, updated, removed)
+      updateJsonSource(data, updated, removed, columns)
         .then(function (newData) {
-          return writeCsv(newData, columns, filePath, fileEncoding).then(fulfill).catach(reject);
+          return writeCsv(newData, columns, filePath, fileEncoding).then(fulfill).catch(reject);
         })
         .catch(reject);
     });
@@ -26,10 +28,10 @@ var WriteFn = function (data, columns, filePath, fileEncoding) {
 
 var writeCsv = function (data, columns, filePath, fileEncoding) {
   return new Promise(function (fulfill, reject) {
-    var headers = tools.simplfyArray(columns);
+    var headers = tools.simplifyArray(columns);
     var csvRows = data.map(function (row) {
       return columns.map(function (column) {
-        return tools.isUndefined(data[column.name], tools.isUndefined(column.defaultValue, ''));
+        return tools.isUndefined(row[column.name], tools.isUndefined(column.defaultValue, ''));
       });
     });
     csvRows.unshift(headers);
@@ -37,7 +39,7 @@ var writeCsv = function (data, columns, filePath, fileEncoding) {
       if (e) {
         reject(e);
       } else {
-        fs.writeFileAsync(filePath, csvRows, fileEncoding).then(fulfill).catch(reject);
+        fs.writeFileAsync(filePath + '.csv', r, fileEncoding).then(fulfill).catch(reject);
       }
     });
   });
@@ -50,6 +52,9 @@ var readCsv = function (data) {
     csv.parse(data, function (e, r) {
       if (e) {
         reject(e);
+      } else if (r.length < 2) {
+        reject(new Error('CSV Must have at least one ros'));
+        // TODO: support just headers
       } else {
         // // Remove the first row, which should be headers
         jsonData = castToSqliteType(r.slice(1) || []);
