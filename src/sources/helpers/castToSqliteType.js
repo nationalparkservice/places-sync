@@ -27,5 +27,4 @@ module.exports = function (tableData) {
       return parse(normalizeToType(column, maxTypes[index] === 'text' ? 'string' : 'number'), maxTypes[index]);
     });
   });
-  process.exit(0);
 };
