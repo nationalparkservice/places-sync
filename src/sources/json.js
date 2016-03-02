@@ -6,10 +6,12 @@
 var Promise = require('bluebird');
 var Immutable = require('immutable');
 var tools = require('../tools');
-var updateJsonSource = require('./helpers/updateJsonSource');
 var fs = Promise.promisifyAll(require('fs'));
 
 var WriteFn = function (data, columns, filePath, fileEncoding) {
+  // This is in here tp prevent a memory leak
+  var updateJsonSource = require('./helpers/updateJsonSource');
+
   return function (updated, removed) {
     return new Promise(function (fulfill, reject) {
       updateJsonSource(data, updated, removed)
