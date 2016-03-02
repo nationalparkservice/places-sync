@@ -86,6 +86,12 @@ module.exports = function (columns, primaryKey, lastUpdate) {
     },
     'runRemove': function () {
       return 'INSERT INTO "remove" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
+    },
+    '_debug.allNew': function () {
+      return 'SELECT * FROM new;';
+    },
+    '_debug.allRemove': function () {
+      return 'SELECT * FROM remove;';
     }
   };
   return function (queryName, values, keys) {
