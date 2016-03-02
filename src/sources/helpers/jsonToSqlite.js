@@ -2,7 +2,7 @@ var tools = require('../../tools');
 var Promise = require('bluebird');
 var database = require('../../databases');
 
-var getColumnInfo = function (data, existingColumns) {
+var getColumnInfo = function (data, existingColumns, sourceConfig) {
   // Figure out what the columns are
   // Fill in any values that we didn't have before
   // If there defined columns, use only columns that aren in the defined list
@@ -36,7 +36,7 @@ var getColumnInfo = function (data, existingColumns) {
     return c;
   });
 
-  // If there defined columns, use only columns that aren in the defined list
+  // If there defined columns, use only columns that aren't in the defined list
   if (existingColumns) {
     newColumns = existingColumns.map(function (c) {
       var matchedColumn = newColumns.filter(function (nc) {
@@ -47,6 +47,14 @@ var getColumnInfo = function (data, existingColumns) {
       return tools.denullify(c, true, [undefined]);
     });
   }
+  // Add the primaryKey, lastUpdateField, and removedField
+  newColumns = newColumns.map(function (column) {
+    column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
+    column.lastUpdateField = tools.arrayify(sourceConfig.lastUpdateField).indexOf(column.name) !== -1;
+    column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
+    return column;
+  });
+
   return newColumns;
 };
 
@@ -56,7 +64,7 @@ var wrapFn = function (fn, args) {
 
 module.exports = function (data, existingColumns, sourceConfig) {
   return new Promise(function (fulfill, reject) {
-    var columns = getColumnInfo(data, existingColumns);
+    var columns = getColumnInfo(data, existingColumns, sourceConfig);
 
     var tempDbConfig = {
       'type': 'sqlite',
