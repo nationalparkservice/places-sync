@@ -74,7 +74,9 @@ module.exports = function (connectionConfig) {
         });
       });
     },
-    close: connection.close
+    close: function() {
+      return connection.close();
+    }
   };
   return returnObject;
 };
