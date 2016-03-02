@@ -4,7 +4,7 @@
 
 var Promise = require('bluebird');
 var tools = require('../tools');
-var sources = tools.requireDirectory(__dirname, [__filename]);
+// var sources = tools.requireDirectory(__dirname, [__filename]);
 var createDatabase = require('./helpers/jsonToSqlite');
 var CreateQueries = require('./helpers/createQueries');
 
@@ -78,9 +78,9 @@ var SourceObject = function (database, columns, writeToSource, sourceConfig) {
               console.log('cleanUpdate', createQueries('cleanUpdate', resultRow, columns));
               return database.query.apply(this, createQueries('cleanUpdate', resultRow, columns));
             }).then(function () {
-              // Just for debug
-              return database.query.apply(this, createQueries('_debug.allRemove', undefined, columns));
-            });
+            // Just for debug
+            return database.query.apply(this, createQueries('getRemoved', undefined, columns));
+          });
         })).then(function (res) {
           // Insert this into the update or remove table
           console.log('res?', res, remove);
@@ -113,7 +113,12 @@ var SourceObject = function (database, columns, writeToSource, sourceConfig) {
     },
     'save': function () {
       // Writes the changes to the original file
-      return writeToSource(updated, removed);
+      Promise.all([
+        database.query.apply(this, createQueries('getUpdated', undefined, columns)),
+        database.query.apply(this, createQueries('getRemoved', undefined, columns))
+      ]).then(function (results) {
+        return writeToSource(results[0], results[1]);
+      });
     },
     'close': function () {
       // Removes the database from memory
@@ -149,7 +154,9 @@ var SourceObject = function (database, columns, writeToSource, sourceConfig) {
 };
 
 module.exports = function (sourceConfig, lastUpdate) {
-  var source = sources[sourceConfig.connection && sourceConfig.connection.type];
+  var sourceName = sourceConfig.connection && sourceConfig.connection.type;
+  var sources = tools.requireDirectory(__dirname, [__filename], sourceName === 'json' ? ['json.js'] : undefined);
+  var source = sources[sourceName];
   if (!source) {
     throw new Error('Invalid Source type specified in connection: ' + sourceConfig.connection && sourceConfig.connection.type);
   } else {
@@ -168,7 +175,7 @@ module.exports = function (sourceConfig, lastUpdate) {
 
       tools.iterateTasks(taskList, 'create source').then(function (r) {
         var database = tools.arrayGetLast(r);
-        var columns = r[0].columns;
+        var columns = r[0].columns; // TODO, should we use the columns from the db (r[1]) instead?
         var writeToSource = r[0].writeFn;
         fulfill(new SourceObject(database, columns, writeToSource, sourceConfig));
       }).catch(reject);
