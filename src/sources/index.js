@@ -55,7 +55,7 @@ var getPrimaryKeysOnly = function (primaryKeys, row) {
   return rowPrimaryKeys;
 };
 
-var SourceObject = function (database, columns, sourceConfig) {
+var SourceObject = function (database, columns, writeToSource, sourceConfig) {
   // Query based on the primary key(s), or all keys if no primary keys exist
   var createQueries = new CreateQueries(columns, sourceConfig.primaryKey, sourceConfig.lastUpdate);
   var primaryKeys = tools.arrayify(sourceConfig.primaryKey);
@@ -71,22 +71,22 @@ var SourceObject = function (database, columns, sourceConfig) {
         return Promise.all(results.map(function (resultRow) {
           updatedRowData = updateObject(resultRow, row);
           // Remove any entries for this row in the removes table
-          console.log('cleanRemove', createQueries('cleanRemove', updatedRowData, columns));
-          return database.query.apply(this, createQueries('cleanRemove', updatedRowData, columns))
+          console.log('cleanRemove', createQueries('cleanRemove', resultRow, columns));
+          return database.query.apply(this, createQueries('cleanRemove', resultRow, columns))
             .then(function () {
               // Remove any entries for this row in the Updates table
-              console.log('cleanUpdate', createQueries('cleanUpdate', updatedRowData, columns));
-              return database.query.apply(this, createQueries('cleanUpdate', updatedRowData, columns));
+              console.log('cleanUpdate', createQueries('cleanUpdate', resultRow, columns));
+              return database.query.apply(this, createQueries('cleanUpdate', resultRow, columns));
             }).then(function () {
               // Just for debug
-              return database.query.apply(this, createQueries('selectAll', undefined, columns));
+              return database.query.apply(this, createQueries('_debug.allRemove', undefined, columns));
             });
         })).then(function (res) {
           // Insert this into the update or remove table
           console.log('res?', res, remove);
           var query = createQueries('run' + (remove ? 'Remove' : 'Update'))[0];
-          console.log('We need to make sure we have all columns here populated with their default values');
           var completeRow = updatedRowData || getDefaults(row, columns);
+          console.log('insert' + (remove ? 'Remove' : 'Update'), query, completeRow);
           return database.query(query, completeRow);
         });
       });
@@ -113,12 +113,11 @@ var SourceObject = function (database, columns, sourceConfig) {
     },
     'save': function () {
       // Writes the changes to the original file
-    },
-    'saveAs': function (source) {
-      // Writes the data to a new source
+      return writeToSource(updated, removed);
     },
     'close': function () {
       // Removes the database from memory
+      return database.close();
     },
     'modify': {
       // The row object needs to contain column names and values
@@ -168,7 +167,10 @@ module.exports = function (sourceConfig, lastUpdate) {
       }];
 
       tools.iterateTasks(taskList, 'create source').then(function (r) {
-        fulfill(new SourceObject(tools.arrayGetLast(r), r[0].columns, sourceConfig));
+        var database = tools.arrayGetLast(r);
+        var columns = r[0].columns;
+        var writeToSource = r[0].writeFn;
+        fulfill(new SourceObject(database, columns, writeToSource, sourceConfig));
       }).catch(reject);
     });
   }
