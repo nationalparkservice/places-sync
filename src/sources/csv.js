@@ -9,12 +9,43 @@ var csv = require('csv');
 var Immutable = require('immutable');
 var tools = require('../tools');
 var castToSqliteType = require('./helpers/castToSqliteType');
+var updateJsonSource = require('./helpers/updateJsonSource');
 var fs = Promise.promisifyAll(require('fs'));
+
+var WriteFn = function (data, columns, filePath, fileEncoding) {
+  return function (updated, removed) {
+    return new Promise(function (fulfill, reject) {
+      updateJsonSource(data, updated, removed)
+        .then(function (newData) {
+          return writeCsv(newData, columns, filePath, fileEncoding).then(fulfill).catach(reject);
+        })
+        .catch(reject);
+    });
+  };
+};
+
+var writeCsv = function (data, columns, filePath, fileEncoding) {
+  return new Promise(function (fulfill, reject) {
+    var headers = tools.simplfyArray(columns);
+    var csvRows = data.map(function (row) {
+      return columns.map(function (column) {
+        return tools.isUndefined(data[column.name], tools.isUndefined(column.defaultValue, ''));
+      });
+    });
+    csvRows.unshift(headers);
+    csv.stringify(csvRows, function (e, r) {
+      if (e) {
+        reject(e);
+      } else {
+        fs.writeFileAsync(filePath, csvRows, fileEncoding).then(fulfill).catch(reject);
+      }
+    });
+  });
+};
 
 var readCsv = function (data) {
   var jsonData;
   var columns;
-
   return new Promise(function (fulfill, reject) {
     csv.parse(data, function (e, r) {
       if (e) {
@@ -65,12 +96,14 @@ module.exports = function (sourceConfig) {
     tools.iterateTasks(tasks, 'csv').then(function (r) {
       var columns = r[1].columns.map(function (column) {
         column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
-        column.lastUpdated = tools.arrayify(sourceConfig.lastUpdated).indexOf(column.name) !== -1;
+        column.lastUpdateField = tools.arrayify(sourceConfig.lastUpdateField).indexOf(column.name) !== -1;
+        column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
         return column;
       });
       fulfill({
         'data': r[1].data,
-        'columns': columns
+        'columns': columns,
+        'writeFn': new WriteFn(r[1].data, columns, connectionConfig.get('filePath'), connectionConfig.get('encoding'))
       });
     }).catch(reject);
   });
