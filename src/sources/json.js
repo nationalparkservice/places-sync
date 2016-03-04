@@ -7,14 +7,17 @@ var Promise = require('bluebird');
 var Immutable = require('immutable');
 var tools = require('../tools');
 var fs = Promise.promisifyAll(require('fs'));
+var stringify = require('json-stringify-pretty-compact');
 
 var WriteFn = function (data, columns, filePath, fileEncoding) {
-  // This is in here tp prevent a memory leak
+  // This is in here to prevent a memory leak
   var updateJsonSource = require('./helpers/updateJsonSource');
+  // TODO: instead of passing data back in, we could just read it from the file again
+  // That way we could take it out of memory
 
   return function (updated, removed) {
     return new Promise(function (fulfill, reject) {
-      updateJsonSource(data, updated, removed)
+      updateJsonSource(data, updated, removed, columns)
         .then(function (newData) {
           return writeJson(newData, columns, filePath, fileEncoding).then(fulfill).catch(reject);
         })
@@ -27,10 +30,11 @@ var writeJson = function (data, columns, filePath, fileEncoding) {
   data = data.map(function (row) {
     var newRow = {};
     columns.forEach(function (column) {
-      newRow[column.name] = tools.isUndefined(data[column.name], tools.isUndefined(column.defaultValue, ''));
+      newRow[column.name] = tools.isUndefined(row[column.name], tools.isUndefined(column.defaultValue, ''));
     });
+    return newRow;
   });
-  return fs.writeFileAsync(filePath, data, fileEncoding);
+  return fs.writeFileAsync(filePath + '.json', stringify(data), fileEncoding);
 };
 
 var readJson = function (data, predefinedColumns) {
@@ -49,7 +53,7 @@ var readJson = function (data, predefinedColumns) {
           }) - 1;
           thisColumn = columns[newColumnIdx];
         }
-        thisColumn.nativeType = tools.getDataType(row[column], thisColumn.type || 'interger', typeof row[column]);
+        thisColumn.type = tools.getDataType(row[column], thisColumn.type || 'interger', typeof row[column]);
       }
     });
   }
@@ -87,14 +91,15 @@ module.exports = function (sourceConfig) {
     tools.iterateTasks(tasks).then(function (r) {
       var columns = r[1].columns.map(function (column) {
         column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
-        column.lastUpdateField = tools.arrayify(sourceConfig.lastUpdateField).indexOf(column.name) !== -1;
+        column.lastUpdatedField = tools.arrayify(sourceConfig.lastUpdatedField).indexOf(column.name) !== -1;
         column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
         return column;
       });
       fulfill({
         'data': r[1].data,
         'columns': columns,
-        'writeFn': new WriteFn(r[1].data, columns, connectionConfig.get('filePath'), connectionConfig.get('encoding'))
+        'writeFn': new WriteFn(r[1].data, columns, connectionConfig.get('filePath'), connectionConfig.get('encoding')),
+        'querySource': false
       });
     }).catch(reject);
   });
