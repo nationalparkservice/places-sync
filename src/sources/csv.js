@@ -45,16 +45,21 @@ var writeCsv = function (data, columns, filePath, fileEncoding) {
   });
 };
 
-var readCsv = function (data) {
+var readCsv = function (data, predefinedColumns) {
   var jsonData;
   var columns;
   return new Promise(function (fulfill, reject) {
     csv.parse(data, function (e, r) {
       if (e) {
         reject(e);
-      } else if (r.length < 2) {
-        reject(new Error('CSV Must have at least one ros'));
-        // TODO: support just headers
+      } else if (r.length < 2 && !predefinedColumns) {
+        reject(new Error('CSV Must have at least one row, or have its columns defined'));
+      } else if (predefinedColumns && r.length < 2) {
+        console.log(predefinedColumns);
+        fulfill({
+          'data': [],
+          'columns': predefinedColumns
+        });
       } else {
         // // Remove the first row, which should be headers
         jsonData = castToSqliteType(r.slice(1) || []);
@@ -62,7 +67,7 @@ var readCsv = function (data) {
         columns = r[0].map(function (name, index) {
           return {
             'name': name,
-            'nativeType': 'text'
+            'type': 'text'
           };
         });
 
@@ -96,19 +101,20 @@ module.exports = function (sourceConfig) {
       'name': 'convertFromCsv',
       'description': 'Takes the source data and converts it to Json',
       'task': readCsv,
-      'params': ['{{openFile}}']
+      'params': ['{{openFile}}', sourceConfig.columns]
     }];
     tools.iterateTasks(tasks, 'csv').then(function (r) {
       var columns = r[1].columns.map(function (column) {
         column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
-        column.lastUpdateField = tools.arrayify(sourceConfig.lastUpdateField).indexOf(column.name) !== -1;
+        column.lastUpdatedField = tools.arrayify(sourceConfig.lastUpdatedField).indexOf(column.name) !== -1;
         column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
         return column;
       });
       fulfill({
         'data': r[1].data,
         'columns': columns,
-        'writeFn': new WriteFn(r[1].data, columns, connectionConfig.get('filePath'), connectionConfig.get('encoding'))
+        'writeFn': new WriteFn(r[1].data, columns, connectionConfig.get('filePath'), connectionConfig.get('encoding')),
+        'querySource': false
       });
     }).catch(reject);
   });
