@@ -1,7 +1,7 @@
 var Promise = require('bluebird');
 var sqlite = require('sqlite3');
 var fandlebars = require('fandlebars');
-// var tools = require('../tools');
+var tools = require('../tools');
 
 var convertParams = function (origQuery, origParams) {
   origParams = origParams || {};
@@ -31,12 +31,16 @@ var convertManyParams = function (origQuery, origParams) {
     // bad practice to load strings right into SQL. So our other option is to convert
     // all input to binary objects: http://www.sqlite.org/lang_expr.html
     // BLOB literals are string literals containing hexadecimal data and preceded by a single "x" or "X" character. Example: X'53514C697465'
-    var returnValue = " CAST(x'";
-    for (var i = 0; i < param.length; i++) {
-      returnValue += param.charCodeAt(i).toString(16);
+    var paramType = param === null ? 'null' : tools.getDataType(param) === 'text' ? 'TEXT' : 'NUMERIC';
+    if (paramType !== 'null') {
+      param = tools.normalizeToType(param).toString();
+      var returnValue = " CAST(x'";
+      for (var i = 0; i < param.length; i++) {
+        returnValue += param.charCodeAt(i).toString(16);
+      }
+      returnValue += "' AS " + paramType + ') ';
     }
-    return returnValue + "' AS TEXT) ";
-  // return '"' + param + '"';
+    return paramType === 'null' ? 'null' : returnValue;
   };
   var newParams = {};
   for (var param in origParams) {
