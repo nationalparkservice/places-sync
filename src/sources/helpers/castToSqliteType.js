@@ -6,7 +6,7 @@ var parse = function (value, sqliteType) {
 };
 
 module.exports = function (tableData) {
-  // Cast Variables to Intergers, Floats, or Strings after guessing the type for the entire column
+  // Cast Variables to Integers, Floats, or Strings after guessing the type for the entire column
   // This is useful for CSV files, or other sources that cast everything to string by default
   //
   // Set the maxType (most restrictive) value type to integer for each column
