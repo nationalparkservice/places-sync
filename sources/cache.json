@@ -16,6 +16,9 @@
     "type": "text"
   }, {
     "name": "hash",
+    "type": "test"
+  }, {
+    "name": "last_update",
     "type": "numeric"
   }, {
     "name": "data",
@@ -24,5 +27,8 @@
     "name": "removed",
     "type": "numeric"
   }],
+  "tableName": "master",
+  "removedField": "removed",
+  "lastUpdatedField": "last_update",
   "primaryKey": ["process", "source", "key"]
 }
