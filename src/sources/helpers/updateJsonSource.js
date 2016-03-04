@@ -11,8 +11,8 @@ module.exports = function (fullData, updated, removed, columns) {
   var primaryKey = simplifyArray(columns.filter(function (c) {
     return c.primaryKey === true;
   }));
-  var lastUpdateField = simplifyArray(columns.filter(function (c) {
-    return c.lastUpdateField === true;
+  var lastUpdatedField = simplifyArray(columns.filter(function (c) {
+    return c.lastUpdatedField === true;
   }));
   var removedField = simplifyArray(columns.filter(function (c) {
     return c.removedField === true;
@@ -22,7 +22,7 @@ module.exports = function (fullData, updated, removed, columns) {
       'data': fullData,
       'type': 'json'
     },
-    'lastUpdateField': lastUpdateField,
+    'lastUpdatedField': lastUpdatedField,
     'removedField': removedField,
     'primaryKey': primaryKey
   };
@@ -36,7 +36,7 @@ module.exports = function (fullData, updated, removed, columns) {
       tasks.push(source.modify.update(row));
     });
     return Promise.all(tasks).then(function () {
-      return source.selectAll().then(function (allData) {
+      return source.selectAllInSource().then(function (allData) {
         return source.close().then(function () {
           return allData;
         });
