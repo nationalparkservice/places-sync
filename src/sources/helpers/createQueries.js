@@ -1,6 +1,6 @@
 var tools = require('../../tools');
 
-module.exports = function (columns, primaryKey, lastUpdate) {
+module.exports = function (columns, primaryKey, lastUpdatedField) {
   var queryKey = tools.arrayify(primaryKey || tools.simplifyArray(columns));
 
   var arrayToColumns = function (columns, tableName, quotes) {
@@ -45,58 +45,75 @@ module.exports = function (columns, primaryKey, lastUpdate) {
   };
 
   var queries = {
-    'selectAll': function () {
+    'selectAllInCache': function () {
       var selectAllQuery = 'SELECT ' + arrayToColumns(columns, 'all_data') + ' FROM (';
-      selectAllQuery += ' SELECT ' + arrayToColumns(columns, 'source');
-      selectAllQuery += ' FROM "source"';
-      selectAllQuery += ' LEFT JOIN "remove" ON ' + queryKey.map(function (pk) {
-        return '"remove"."' + pk + '" = "source"."' + pk + '"';
+      selectAllQuery += ' SELECT ' + arrayToColumns(columns, 'cached');
+      selectAllQuery += ' FROM "cached"';
+      selectAllQuery += ' LEFT JOIN "removed" ON ' + queryKey.map(function (pk) {
+        return '"removed"."' + pk + '" = "cached"."' + pk + '"';
       }).join(' AND ');
-      selectAllQuery += ' LEFT JOIN  "new" ON ' + queryKey.map(function (pk) {
-        return '"new".' + pk + ' = "source"."' + pk + '"';
+      selectAllQuery += ' LEFT JOIN  "updated" ON ' + queryKey.map(function (pk) {
+        return '"updated".' + pk + ' = "cached"."' + pk + '"';
       }).join(' AND ');
       selectAllQuery += ' WHERE';
       selectAllQuery += queryKey.map(function (pk) {
-        return '"remove"."' + pk + '" IS NULL';
+        return '"removed"."' + pk + '" IS NULL';
       }).join(' AND ');
       selectAllQuery += ' AND ';
       selectAllQuery += queryKey.map(function (pk) {
-        return '"new"."' + pk + '" IS NULL';
+        return '"updated"."' + pk + '" IS NULL';
       }).join(' AND ');
       selectAllQuery += ' UNION';
-      selectAllQuery += ' SELECT ' + arrayToColumns(columns, 'new');
-      selectAllQuery += ' FROM "new") AS "all_data"';
+      selectAllQuery += ' SELECT ' + arrayToColumns(columns, 'updated');
+      selectAllQuery += ' FROM "updated") AS "all_data"';
       return selectAllQuery;
     },
-    'selectLastUpdate': function () {
-      if (lastUpdate) {
-        return 'SELECT MAX("all_data"."' + lastUpdate + '" AS "lastUpdate") FROM ' + queries.selectAllQuery + ') AS "last_update"';
+    'selectLastUpdate': function (tableName) {
+      if (lastUpdatedField) {
+        return 'SELECT MAX("'+tableName+'"."' + lastUpdatedField + '" AS "lastUpdate") FROM "' + tableName + '") AS "last_update"';
       } else {
         return 'SELECT 0 AS "lastUpdate" ';
       }
     },
     'cleanUpdate': function () {
-      return 'DELETE FROM "new"';
+      return queries.removed('updated');
     },
     'runUpdate': function () {
-      return 'INSERT INTO "new" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
+      return queries.insert('updated');
     },
     'cleanRemove': function () {
-      return 'DELETE FROM "remove"';
+      return queries.removed('removed');
     },
     'runRemove': function () {
-      return 'INSERT INTO "remove" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
+      return queries.insert('removed');
     },
     'getUpdated': function () {
-      return 'SELECT ' + arrayToColumns(columns, 'new') + ' FROM new;';
+      return queries.select('updated');
+    },
+    'getCached': function () {
+      return queries.select('cached');
     },
     'getRemoved': function () {
-      return 'SELECT ' + arrayToColumns(columns, 'remove') + 'FROM remove;';
+      return queries.select('removed');
+    },
+    'insert': function (tableName) {
+      return 'INSERT INTO "' + tableName + '" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
+    },
+    'select': function (tableName) {
+      return 'SELECT ' + arrayToColumns(columns, tableName) + ' FROM "' + tableName + '"';
+    },
+    'remove': function (tableName) {
+      return 'DELETE FROM "' + tableName + '"';
     }
   };
-  return function (queryName, values, keys) {
+  return function (queryName, values, keys, tableName) {
     var where = values ? createWhereObj(tools.simplifyArray(keys || queryKey), values) : undefined;
-    var query = queries[queryName]() + (where ? ' WHERE ' + where[0] : ';');
+    var query = queries[queryName](tableName) + (where ? ' WHERE ' + where[0] : ';');
+
+    // Special case for the last updated which requires a great than
+    if (queryName === 'selectSince') {
+      query = queries['select'](tableName) + ' WHERE "' + lastUpdatedField + '" > ' + values[lastUpdatedField] + ';';
+    }
     return [query, where && where[1]];
   };
 };
