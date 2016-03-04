@@ -18,7 +18,7 @@ var thrower = function (e) {
 sources(csvConfig).then(function (source) {
   var tasks = [{
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selectAll,
     'params': []
   }, {
     'name': 'selectLastUpdate',
@@ -41,7 +41,7 @@ sources(csvConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selectAll,
     'params': []
   }, {
     'name': 'remove',
@@ -52,7 +52,7 @@ sources(csvConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selectAll,
     'params': []
   }, {
     'name': 'create',
@@ -67,7 +67,7 @@ sources(csvConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selectAll,
     'params': []
   }, {
     'name': 'update',
@@ -82,7 +82,7 @@ sources(csvConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selectAll,
     'params': []
   }, {
     'name': 'write out',
