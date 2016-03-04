@@ -39,8 +39,9 @@ module.exports = function (list, taskName, verbose, errorArray) {
       report('*** Executing Task ***\n\t', sublist[0].name);
 
       var taskResObj = {};
+      var task = applyParams([sublist[0].task], list, msgList)[0];
       try {
-        var taskRes = sublist[0].task.apply(
+        var taskRes = task.apply(
           sublist[0].context,
           params
         );
