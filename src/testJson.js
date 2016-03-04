@@ -18,7 +18,7 @@ var thrower = function (e) {
 sources(jsonConfig).then(function (source) {
   var tasks = [{
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selecAll,
     'params': []
   }, {
     'name': 'selectLastUpdate',
@@ -41,7 +41,7 @@ sources(jsonConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selecAll,
     'params': []
   }, {
     'name': 'remove',
@@ -52,7 +52,7 @@ sources(jsonConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selecAll,
     'params': []
   }, {
     'name': 'create',
@@ -67,7 +67,7 @@ sources(jsonConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selecAll,
     'params': []
   }, {
     'name': 'update',
@@ -82,9 +82,13 @@ sources(jsonConfig).then(function (source) {
     }]
   }, {
     'name': 'selectAll',
-    'task': source.selectAll,
+    'task': source.cache.selecAll,
     'params': []
-  },{
+  }, {
+    'name': 'write out',
+    'task': source.save,
+    'params': []
+  }, {
     'name': 'close',
     'task': source.close,
     'params': []
