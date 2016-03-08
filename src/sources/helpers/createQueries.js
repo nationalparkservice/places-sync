@@ -1,6 +1,6 @@
 var tools = require('../../tools');
 
-module.exports = function (columns, primaryKey, lastUpdatedField) {
+module.exports = function (columns, primaryKey, lastUpdatedField, removedField) {
   var queryKey = tools.arrayify(primaryKey || tools.simplifyArray(columns));
 
   var arrayToColumns = function (columns, tableName, quotes) {
@@ -41,13 +41,21 @@ module.exports = function (columns, primaryKey, lastUpdatedField) {
       whereObj[pk] = valuesObj[pk] || defaultWhere;
     });
 
+    if (removedField) {
+      whereObj[removedField] = {
+        '$ne': 1 // TODO Use removedValue
+      };
+    }
+
     return tools.createWhereClause(whereObj);
   };
 
   var queries = {
-    'selectAllInCache': function () {
-      var selectAllQuery = 'SELECT ' + arrayToColumns(columns, 'all_data') + ' FROM (';
-      selectAllQuery += ' SELECT ' + arrayToColumns(columns, 'cached');
+    'selectAllInCache': function (tableName, queryColumns) {
+      tableName = tableName || 'all_data';
+      queryColumns = queryColumns || columns;
+      var selectAllQuery = 'SELECT ' + arrayToColumns(queryColumns, 'all_data') + ' FROM (';
+      selectAllQuery += ' SELECT ' + arrayToColumns(queryColumns, 'cached');
       selectAllQuery += ' FROM "cached"';
       selectAllQuery += ' LEFT JOIN "removed" ON ' + queryKey.map(function (pk) {
         return '"removed"."' + pk + '" = "cached"."' + pk + '"';
@@ -64,16 +72,12 @@ module.exports = function (columns, primaryKey, lastUpdatedField) {
         return '"updated"."' + pk + '" IS NULL';
       }).join(' AND ');
       selectAllQuery += ' UNION';
-      selectAllQuery += ' SELECT ' + arrayToColumns(columns, 'updated');
+      selectAllQuery += ' SELECT ' + arrayToColumns(queryColumns, 'updated');
       selectAllQuery += ' FROM "updated") AS "all_data"';
       return selectAllQuery;
     },
     'selectLastUpdate': function (tableName) {
-      if (lastUpdatedField) {
-        return 'SELECT MAX("'+tableName+'"."' + lastUpdatedField + '" AS "lastUpdate") FROM "' + tableName + '") AS "last_update"';
-      } else {
-        return 'SELECT 0 AS "lastUpdate" ';
-      }
+      return 'SELECT COALESCE(MAX("' + tableName + '"."' + lastUpdatedField + '"), -1) AS "lastUpdate" FROM "' + tableName + '" ';
     },
     'cleanUpdate': function () {
       return queries.removed('updated');
@@ -96,11 +100,16 @@ module.exports = function (columns, primaryKey, lastUpdatedField) {
     'getRemoved': function () {
       return queries.select('removed');
     },
-    'insert': function (tableName) {
-      return 'INSERT INTO "' + tableName + '" (' + arrayToColumns(columns) + ') VALUES (' + arrayToColumns(columns, undefined, ['{{', '}}']) + ')';
+    'selectSince': function (tableName, queryColumns) {
+      return queries.select(tableName, queryColumns);
     },
-    'select': function (tableName) {
-      return 'SELECT ' + arrayToColumns(columns, tableName) + ' FROM "' + tableName + '"';
+    'insert': function (tableName, queryColumns) {
+      queryColumns = queryColumns || columns;
+      return 'INSERT INTO "' + tableName + '" (' + arrayToColumns(queryColumns) + ') VALUES (' + arrayToColumns(queryColumns, undefined, ['{{', '}}']) + ')';
+    },
+    'select': function (tableName, queryColumns) {
+      queryColumns = queryColumns || columns;
+      return 'SELECT ' + arrayToColumns(queryColumns, tableName) + ' FROM "' + tableName + '"';
     },
     'remove': function (tableName) {
       return 'DELETE FROM "' + tableName + '"';
@@ -108,7 +117,7 @@ module.exports = function (columns, primaryKey, lastUpdatedField) {
   };
   return function (queryName, values, keys, tableName) {
     var where = values ? createWhereObj(tools.simplifyArray(keys || queryKey), values) : undefined;
-    var query = queries[queryName](tableName) + (where ? ' WHERE ' + where[0] : ';');
+    var query = queries[queryName](tableName, tools.simplifyArray(keys || queryKey)) + (where ? ' WHERE ' + where[0] : ';');
 
     // Special case for the last updated which requires a great than
     if (queryName === 'selectSince') {
