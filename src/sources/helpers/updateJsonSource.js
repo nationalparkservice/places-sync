@@ -4,6 +4,7 @@
 // So this loads the JSON into a sqlite database, and runs the updates and deletes
 // And returns the full data object
 var Promise = require('bluebird');
+var guid = require('../../tools/guid');
 var jsonSource = require('../');
 var simplifyArray = require('../../tools/simplifyArray');
 
@@ -18,10 +19,12 @@ module.exports = function (fullData, updated, removed, columns) {
     return c.removedField === true;
   }));
   var tempSource = {
+    'name': guid(),
     'connection': {
       'data': fullData,
       'type': 'json'
     },
+    'columns': columns,
     'lastUpdatedField': lastUpdatedField,
     'removedField': removedField,
     'primaryKey': primaryKey
@@ -36,7 +39,7 @@ module.exports = function (fullData, updated, removed, columns) {
       tasks.push(source.modify.update(row));
     });
     return Promise.all(tasks).then(function () {
-      return source.selectAllInSource().then(function (allData) {
+      return source.cache.selectAll().then(function (allData) {
         return source.close().then(function () {
           return allData;
         });
