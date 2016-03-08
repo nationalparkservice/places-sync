@@ -8,9 +8,32 @@ var tools = require('../tools');
 var createDatabase = require('./helpers/jsonToSqlite');
 var CreateQueries = require('./helpers/createQueries');
 
-var promiseError = function (msg) {
-  return new Promise(function (f, r) {
-    r(new Error(msg));
+var dummyPromise = function (fulfillMsg, rejectMsg) {
+  return new Promise(function (fulfill, reject) {
+    if (rejectMsg) {
+      reject(rejectMsg);
+    } else {
+      fulfill(fulfillMsg);
+    }
+  });
+};
+
+var rowsToMaster = function (rows, columns, primaryKeys, lastUpdatedField, removedField, removeRow, sourceName) {
+  return rows.map(function (row) {
+    var key = primaryKeys.map(function (k) {
+      return row[k];
+    }).join(',');
+    var hash = tools.md5(columns.map(function (c) {
+      return row[c.name];
+    }).join(','));
+    return {
+      'key': key,
+      'process': 'sync',
+      'source': sourceName,
+      'hash': hash,
+      'last_updated': row[lastUpdatedField],
+      'is_removed': removeRow ? 1 : 0
+    };
   });
 };
 
@@ -40,13 +63,14 @@ var getDefaults = function (row, columns) {
 
 var getPrimaryKeysOnly = function (primaryKeys, row) {
   var rowPrimaryKeys = {};
+  var row = row || {};
   primaryKeys.forEach(function (pk) {
     rowPrimaryKeys[pk] = row[pk];
   });
   return rowPrimaryKeys;
 };
 
-var SourceObject = function (database, columns, writeToSource, querySource, masterCache) {
+var SourceObject = function (database, columns, writeToSource, querySource, masterCache, sourceConfig) {
   // Query based on the primary key(s), or all keys if no primary keys exist
   var primaryKeys = tools.simplifyArray(columns.filter(function (c) {
     return c.primaryKey;
@@ -54,22 +78,27 @@ var SourceObject = function (database, columns, writeToSource, querySource, mast
   var lastUpdatedField = tools.simplifyArray(columns.filter(function (c) {
     return c.lastUpdatedField;
   }))[0];
+  var removedField = tools.simplifyArray(columns.filter(function (c) {
+    return c.removedField;
+  }))[0];
+
   var createQueries = new CreateQueries(columns, primaryKeys, lastUpdatedField);
 
   var updateRow = function (row, remove) {
     var updatedRowData = [];
+
+    // Make sure all the required keys are present in the row
     return verifyKeys(row, primaryKeys)
       .then(function () {
+        // Check the cache (and upload / remove table) for any of these rows
+        // If any do exist, remove them, since we are removing them anyway
         return actions.cache.selectAll(getPrimaryKeysOnly(primaryKeys, row));
       })
       .then(function (results) {
         return Promise.all(results.map(function (resultRow) {
           updatedRowData.push(tools.updateObject(resultRow, row));
-          // console.log('updatedRowData', updatedRowData[updatedRowData.length - 1]);
-          // console.log('resultRow', resultRow);
-          // console.log('row', row);
+
           // Remove any entries for this row in the removes table
-          // console.log('cleanRemove', createQueries('cleanRemove', resultRow, columns));
           return database.query.apply(this, createQueries('cleanRemove', resultRow, columns))
             .then(function () {
               // Remove any entries for this row in the Updates table
@@ -77,10 +106,12 @@ var SourceObject = function (database, columns, writeToSource, querySource, mast
             });
         })).then(function (res) {
           // Insert this into the update or remove table
-          // console.log('res?', res, remove, updatedRowData, getDefaults(row, columns));
           var query = createQueries('run' + (remove ? 'Remove' : 'Update'))[0];
-          var completeRow = updatedRowData.length === 1 ? updatedRowData[0] : getDefaults(row, columns);
-          // console.log('insert' + (remove ? 'Remove' : 'Update'), query, completeRow);
+
+          // If any columns are missing, fill them in with default values
+          var completeRow = getDefaults(row, columns);
+
+          // Run the query on the database
           return database.query(query, completeRow);
         });
       });
@@ -88,46 +119,11 @@ var SourceObject = function (database, columns, writeToSource, querySource, mast
 
   var actions = {
     'cache': {
-      'selectAll': function (rowData) {
+      'selectAll': function (rowData, requestedColumns) {
+        requestedColumns = requestedColumns || columns;
         // Selects all fields, if not rowData is supplied, it will query everything
-        return database.query.apply(this, createQueries('selectAllInCache', rowData, columns));
+        return database.query.apply(this, createQueries('selectAllInCache', rowData, requestedColumns));
       }
-    },
-    'selectAllKeys': function () {
-      // This gets ALL keys from the source, including ones that we didn't pull down to our database
-      return new Promise(function (fulfill, reject) {
-        var tasks = [
-          database.query.apply(this, createQueries('selectAllKeys', primaryKeys))
-        ];
-        Promise.all(tasks).then(function (keys) {
-          var allKeys = [];
-          keys.forEach(function (keyList) {
-            keyList.forEach(function (key) {
-              var txtKey = JSON.stringify(key);
-              if (allKeys.indexOf(txtKey) === -1) {
-                allKeys.push(txtKey);
-              }
-            });
-          });
-          fulfill(allKeys.map(function (txtKey) {
-            return JSON.parse(txtKey);
-          }));
-        }).catch(reject);
-      });
-    },
-    'selectLastUpdate': function (rowData) {
-      // gets the max date from the lastUpdate field, a rowData can be applied to this
-      return new Promise(function (fulfill, reject) {
-        if (querySource) {
-          querySource('selectLastUpdate', rowData, 'lastUpdate').then(function (r) {
-            fulfill(r[0].lastUpdate);
-          }).catch(reject);
-        } else {
-          database.query.apply(this, createQueries('selectLastUpdate', rowData, undefined, 'cached')).then(function (r) {
-            fulfill(r[0].lastUpdate);
-          }).catch(reject);
-        }
-      });
     },
     'get': {
       'columns': function () {
@@ -135,40 +131,139 @@ var SourceObject = function (database, columns, writeToSource, querySource, mast
         // as well as what the primaryKey(s) is/are and the lastEdit field
         return JSON.parse(JSON.stringify(columns));
       },
-      'selectAll': function (rowData, type) {
-        type = type !== 'selectAll' ? 'select' : type; // Prevent anything weird from getting passed in
+      'all': function (rowData, type) {
+        // Returns all data from the source matching the rowData
+        // this is strange in that it allows "selectSince" to be passed in for type
+        // doing this will change the query to query information greater than the lastUpdatedField in the rowData
+        type = type !== 'selectSince' ? 'select' : type; // Prevent anything weird from getting passed in
         if (querySource) {
           return querySource(type, rowData, columns);
         } else {
-          database.query.apply(this, createQueries(type, rowData, columns, 'cached'));
-          return database.query.apply(this, createQueries('getCached', rowData, columns));
+          return database.query.apply(this, createQueries(type, rowData, columns, 'cached'));
         }
       },
-      'updates': function (sinceTime) {
-        return new Promise(function(fulfill, reject) {
-        var rowData = {};
-        rowData[lastUpdatedField] = sinceTime;
-         Promise.all([
-           actions.get.selectAll(rowData, 'selectSince'),
-           actions.selectAllKeys(??)
-        });
-        somehow compare those keys with what has been written to 
+      'allKeys': function (rowData) {
+        // Gets all keys in source table
+        if (querySource) {
+          // We can query the source directly
+          return querySource('select', rowData, primaryKeys);
+        } else {
+          // We have to query the cache
+          return actions.cache.selectAll(getPrimaryKeysOnly(primaryKeys, rowData), primaryKeys);
+        }
       },
-      'updatesSinceSync': function (sourceName) {
-        return masterCache.selectLastUpdate({
-          'source': sourceName
-        }).then(function (updateTime) {
-          return actions.get.updates(updateTime);
+      'lastUpdate': function (rowData) {
+        // gets the max date from the lastUpdate field, a rowData can be applied to this
+        // Should tell you to last time the source was updated
+        // if rowData is applied, it will use that as a where clause / filter
+        return new Promise(function (fulfill, reject) {
+          if (lastUpdatedField) {
+            if (querySource) {
+              querySource('selectLastUpdate', rowData).then(function (r) {
+                fulfill(r[0].lastUpdate);
+              }).catch(reject);
+            } else {
+              database.query.apply(this, createQueries('selectLastUpdate', rowData, undefined, 'cached')).then(function (r) {
+                fulfill(r[0].lastUpdate);
+              }).catch(reject);
+            }
+          } else {
+            fulfill(-1); // Return -1 is there is no "lastUpdatedField"
+          }
+        });
+      },
+      'updates': function (otherSourceName) {
+        return new Promise(function (fulfill, reject) {
+          var masterCacheQuery = {
+            'process': 'sync',
+            'source': otherSourceName
+          };
+          var tasks = [{
+            'name': 'lastSyncTime',
+            'description': 'Gets the last time this source was updated from the master cache',
+            'task': masterCache ? masterCache.get.lastUpdate : dummyPromise,
+            'params': [masterCache ? masterCacheQuery : -1] // Return -1 if there is no master cache
+          }, {
+            'name': 'syncTimeQueryObj',
+            'description': 'Create the query object for the database',
+            'example': 'in: (lastUpdatedField , 5) -- out: {"lastUpdatedField": 5}',
+            'task': tools.setProperty,
+            'params': [lastUpdatedField, '{{lastSyncTime}}']
+          }, {
+            'name': 'updatedSinceTime',
+            'description': 'Get everything that has been updated since a certain time',
+            'task': actions.get.all,
+            'params': ['{{syncTimeQueryObj}}', 'selectSince']
+          }, {
+            'name': 'allKeys',
+            'description': 'Get ALL keys from this source, so we can tell what was deleted',
+            'task': actions.get.allKeys,
+            'params': []
+          }, {
+            'name': 'masterCacheKeys',
+            'description': 'Get ALL keys from the master cache, so we can tell what used to exist that doesnt anymore',
+            'task': masterCache ? masterCache.get.allKeys : dummyPromise,
+            'params': [masterCache ? masterCacheQuery : []]
+          }];
+          tools.iterateTasks(tasks).then(function (results) {
+            var exp = {};
+            for (var k in results) {
+              if (parseInt(k, 10).toString() !== k.toString()) {
+                exp[k] = results[k];
+              }
+            }
+            console.log(JSON.stringify(exp, null, 2));
+            var updated = results.updatedSinceTime;
+            // var existingKeys = [];
+            var existingMasterCacheIndexes = [];
+            var removed = [];
+
+            var masterCacheKeysOnly = results.masterCacheKeys.map(function (row) {
+              return row.key;
+            });
+            results.allKeys.forEach(function (currentRow) {
+              var temp = [];
+              primaryKeys.forEach(function (k) {
+                temp.push(currentRow[k]);
+              });
+              var masterCacheKeysIndex = masterCacheKeysOnly.indexOf(temp.join(','));
+              if (masterCacheKeysIndex > -1) {
+                // existingKeys.push(currentRow);
+                existingMasterCacheIndexes.push(masterCacheKeysIndex);
+              }
+            });
+            removed = masterCacheKeysOnly.filter(function (key, index) {
+              return existingMasterCacheIndexes.indexOf(index) === -1;
+            }).map(function (value) {
+              var cols = value.split(',');
+              var returnObj = {};
+              primaryKeys.forEach(function (pk, idx) {
+                returnObj[pk] = cols[idx];
+              });
+              return returnObj;
+            });
+            fulfill({
+              'updated': updated,
+              'removed': removed
+            });
+          }).catch(reject);
         });
       }
     },
     'save': function () {
       // Writes the changes to the original file
-      Promise.all([
+      return Promise.all([
         database.query.apply(this, createQueries('getUpdated', undefined, columns)),
         database.query.apply(this, createQueries('getRemoved', undefined, columns))
       ]).then(function (results) {
-        return writeToSource(results[0], results[1]);
+        return Promise.all([
+          masterCache ? masterCache.modify.applyUpdates({
+            updated: rowsToMaster(results[0], columns, primaryKeys, lastUpdatedField, removedField, false, sourceConfig.name),
+            removed: rowsToMaster(results[1], columns, primaryKeys, lastUpdatedField, removedField, true, sourceConfig.name)
+          }) : dummyPromise(),
+          writeToSource(results[0], results[1]),
+          masterCache ? masterCache.save() : dummyPromise()
+        ]);
       });
     },
     'close': function () {
@@ -177,15 +272,15 @@ var SourceObject = function (database, columns, writeToSource, querySource, mast
     },
     'modify': {
       // The row object needs to contain column names and values
-      // ex. {'column1': 'value', 'primaryKey': 1}
+      // ex. {'column1': 'value', 'column2': 2}
       'create': function (row) {
         // CHECK IF WE HAVE THIS VALUE IN ALL TABLES
-        // IF NOT, INSERT IT TO THE UPDATE TABLE
+        // IF NOT, INSERT IT INTO THE UPDATED TABLE
         return actions.cache.selectAll(getPrimaryKeysOnly(primaryKeys, row))
           .then(function (results) {
             // console.log('conflict?', results, getPrimaryKeysOnly(primaryKeys, row));
             if (results.length > 0) {
-              return promiseError('Cannot create, fields already exist.\n\t create: ' + JSON.stringify(row) + '\n\t existing: ' + JSON.stringify(results));
+              return dummyPromise(undefined, 'Cannot create, fields already exist.\n\t create: ' + JSON.stringify(row) + '\n\t existing: ' + JSON.stringify(results));
             } else {
               return updateRow(row);
             }
@@ -199,7 +294,18 @@ var SourceObject = function (database, columns, writeToSource, querySource, mast
         // requires all primary keys
         return updateRow(row, true);
       },
-      'applyUpdates': function(updates) {
+      'applyUpdates': function (updates) {
+        // takes an object {'updated': [rows], 'removed': [rows]}
+        // Then applies it to the updated and removed tables
+        // Probably just options up the object and loops the updates and removes
+        var tasks = [];
+        updates.removed.forEach(function (row) {
+          tasks.push(actions.modify.remove(row));
+        });
+        updates.updated.forEach(function (row) {
+          tasks.push(actions.modify.update(row));
+        });
+        return Promise.all(tasks);
       }
     }
   };
@@ -214,9 +320,9 @@ module.exports = function (sourceConfig, masterCache) {
 
   // TODO: Compare source permissions
   if (!source) {
-    return promiseError('Invalid Source type specified in connection: ' + (sourceConfig.connection && sourceConfig.connection.type));
+    return dummyPromise(undefined, 'Invalid Source type specified in connection: ' + (sourceConfig.connection && sourceConfig.connection.type));
   } else if (!sourceConfig.name) {
-    return promiseError('All sources must have a name\n\t' + JSON.stringify(sourceConfig, null, 2));
+    return dummyPromise(undefined, 'All sources must have a name\n\t' + JSON.stringify(sourceConfig, null, 2));
   } else {
     return new Promise(function (fulfill, reject) {
       var taskList = [{
@@ -225,7 +331,7 @@ module.exports = function (sourceConfig, masterCache) {
         'task': sources[sourceConfig.connection.type],
         'params': [sourceConfig]
       }, {
-        'name ': 'Create Database',
+        'name': 'Create Database',
         'description': 'Creates a database from the JSON representation of the data and the columns',
         'task': createDatabase,
         'params': ['{{dataToJson.data}}', '{{dataToJson.columns}}', sourceConfig]
@@ -236,7 +342,7 @@ module.exports = function (sourceConfig, masterCache) {
         var columns = r[0].columns; // TODO, should we use the columns from the db (r[1]) instead?
         var writeToSource = r[0].writeFn;
         var querySource = r[0].querySource;
-        fulfill(new SourceObject(database, columns, writeToSource, querySource, masterCache));
+        fulfill(new SourceObject(database, columns, writeToSource, querySource, masterCache, sourceConfig));
       }).catch(reject);
     });
   }
