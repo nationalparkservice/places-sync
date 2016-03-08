@@ -23,10 +23,20 @@ var QuerySource = function (connection, options, tableName, columns) {
       return c.primaryKey;
     });
     var lastUpdatedField = returnColumns.filter(function (c) {
-      return c.primaryKey;
+      return c.lastUpdatedField;
     })[0];
-    var createQueries = new CreateQueries(columns, primaryKeys, lastUpdatedField);
-    return createQueries(type, whereObj, returnColumns, tableName);
+    lastUpdatedField = lastUpdatedField && lastUpdatedField.name;
+    var removedField = returnColumns.filter(function (c) {
+      return c.removedField;
+    })[0];
+    removedField = removedField && removedField.name;
+    var createQueries = new CreateQueries(columns, primaryKeys, lastUpdatedField, removedField);
+    // if (type === 'selectLastUpdate') {
+    //   console.log(type, whereObj, returnColumns, tableName);
+    //   console.log(createQueries(type, whereObj, returnColumns, tableName));
+    //   process.exit(0);
+    // }
+    return connection.query.apply(this, createQueries(type, whereObj, returnColumns, tableName));
   };
 };
 
@@ -37,30 +47,39 @@ var WriteFn = function (connection, options, tableName, columns) {
   var createQueries = new CreateQueries(columns, primaryKeys);
 
   return function (updated, removed) {
-    return new Promise(function (fulfill, reject) {
-      var tasks = [];
-      updated.forEach(function (updatedRow, i) {
-        tasks.push({
-          'name': 'Remove Update Row ' + i,
-          'task': connection.query,
-          'params': createQueries('remove', updatedRow, primaryKeys, tableName)
-        });
-        tasks.push({
-          'name': 'Write Update Row ' + i,
-          'task': connection.query,
-          'params': [createQueries('insert', undefined, columns, tableName)[0], updatedRow]
-        });
+    var tasks = [];
+    var removedField = columns.filter(function (c) {
+      return c.removedField;
+    })[0];
+    if (removedField) {
+      // If we have a removedField, we update all records to have the removedFieldValue (hardcoded to 1 for now)
+      removed.forEach(function (row) {
+        row[removedField.name] = 1; // TODO removedFieldValue
+        updated.push(row);
       });
-      removed.forEach(function (removedRow, i) {
-        tasks.push({
-          'name': 'Remove Removed Row ' + i,
-          'task': connection.query.apply,
-          'params': [this, createQueries('remove', removedRow, primaryKeys, tableName)]
-        });
+      removed = [];
+    }
+    updated.forEach(function (updatedRow, i) {
+      tasks.push({
+        'name': 'Remove Update Row ' + i,
+        'task': connection.query,
+        'params': createQueries('remove', updatedRow, primaryKeys, tableName)
       });
-
-      tools.iterateTasks(tasks, 'update sqlite db', true).then(fulfill).catch(reject);
+      tasks.push({
+        'name': 'Write Update Row ' + i,
+        'task': connection.query,
+        'params': [createQueries('insert', undefined, columns, tableName)[0], updatedRow]
+      });
     });
+    removed.forEach(function (removedRow, i) {
+      tasks.push({
+        'name': 'Remove Removed Row ' + i,
+        'task': connection.query.apply,
+        'params': [this, createQueries('remove', removedRow, primaryKeys, tableName)]
+      });
+    });
+
+    return tools.iterateTasks(tasks, 'update sqlite db', true);
   };
 };
 
