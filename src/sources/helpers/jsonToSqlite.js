@@ -70,7 +70,7 @@ module.exports = function (data, existingColumns, sourceConfig) {
       });
 
       var returnValue = '(' + includeColumns.map(function (column) {
-        console.log('c', column);
+        // console.log('c', column);
         var createColumn = '"' + column.name + '" ' + column.sqliteType;
         if (column.defaultValue !== undefined) {
           createColumn += " DEFAULT '" + column.defaultValue + "'";
@@ -83,7 +83,7 @@ module.exports = function (data, existingColumns, sourceConfig) {
         returnValue += ', PRIMARY KEY (' + tools.surroundValues(tools.simplifyArray(primaryKeys), '"', '"').join(', ') + ')';
       }
       returnValue += ');';
-      console.log(returnValue);
+      // console.log(returnValue);
       return returnValue;
     };
 
@@ -91,9 +91,6 @@ module.exports = function (data, existingColumns, sourceConfig) {
     var createStatementCache = 'CREATE TABLE "cached" ' + createColumns(columns);
     var createStatementUpdate = 'CREATE TABLE "updated" ' + createColumns(columns);
     var createStatementRemove = 'CREATE TABLE "removed" ' + createColumns(columns);
-    var createStatementKeyCache = 'CREATE TABLE "keyCache" ' + createColumns(columns.filter(function (c) {
-      return c.primaryKey;
-    }));
 
     // console.log(createStatementCache);
     // console.log(createStatementUpdate);
@@ -124,10 +121,6 @@ module.exports = function (data, existingColumns, sourceConfig) {
       'name': 'Create Removes Table',
       'task': '{{Create Database.query}}',
       'params': [createStatementRemove]
-    }, {
-      'name': 'Create keyCache Table',
-      'task': '{{Create Database.query}}',
-      'params': [createStatementKeyCache]
     }, {
       'name': 'Insert Data',
       'task': '{{Create Database.queryList}}',
