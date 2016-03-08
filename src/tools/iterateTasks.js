@@ -36,7 +36,7 @@ module.exports = function (list, taskName, verbose, errorArray) {
       var nextList = [];
       var params = Array.isArray(sublist[0].params) ? sublist[0].params : [sublist[0].params];
       params = applyParams(params, list, msgList);
-      report('*** Executing Task ***\n\t', sublist[0].name);
+      report('*** Executing "' + taskName + '" Task ***\n\t', sublist[0].name);
 
       var taskResObj = {};
       var task = applyParams([sublist[0].task], list, msgList)[0];
@@ -69,6 +69,9 @@ module.exports = function (list, taskName, verbose, errorArray) {
       }
       taskResObj.then(function (msg) {
         messages.push(msg);
+        if (sublist[0].name && parseInt(sublist[0].name, 10).toString() !== sublist[0].name.toString()) {
+          messages[sublist[0].name.toString()] = msg;
+        }
         nextList = sublist.slice(1);
         if (nextList.length > 0) {
           exec(nextList, messages, callback);
