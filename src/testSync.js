@@ -13,6 +13,7 @@ var csvAFileName = './csvA.csv';
 
 // CSV File B
 var csvBOrigData = 'a,b,c,d\n';
+csvBOrigData += '3,e,f,1\n';
 var csvBFileName = './csvB.csv';
 
 var makeSource = function (name, path) {
@@ -23,7 +24,7 @@ var makeSource = function (name, path) {
       'filePath': path
     },
     'primaryKey': ['a'],
-    'lastUpdateField': 'd'
+    'lastUpdatedField': 'd'
   };
 };
 var csvAConfig = makeSource('test_csvA', csvAFileName);
@@ -35,7 +36,7 @@ var masterCacheConfig = {
     'filePath': process.env['HOME'] + '/.places-sync/masterCache.sqlite'
   },
   'tableName': 'master',
-  'lastUpdateField': 'last_updated',
+  'lastUpdatedField': 'last_updated',
   'removedField': 'is_removed',
   'removedValue': 1
 };
@@ -48,6 +49,7 @@ var taskList = [{
   'params': [masterCacheConfig]
 }, {
   'name': 'writeCsvAFile',
+  'desciption': 'Writes the csv A file out',
   'task': fs.writeFileAsync,
   'params': [csvAFileName, csvAOrigData]
 }, {
@@ -66,6 +68,7 @@ var taskList = [{
   'params': ['{{csvSourceA.get.columns.0}}']
 }, {
   'name': 'writeCsvBFile',
+  'desciption': 'Writes the csv B file to disk',
   'task': fs.writeFileAsync,
   'params': [csvBFileName, csvBOrigData]
 }, {
@@ -78,7 +81,7 @@ var taskList = [{
   'description': 'Gets an object containing the records that were updated and the records that were removed from sourceA since the last write to B in the masterCache',
   'task': '{{csvSourceA.get.updates}}',
   'params': [csvBConfig.name]
-}/*, {
+}, {
   'name': 'applyUpdatesToB',
   'description': 'Adds the updates and removes to the b object',
   'task': '{{csvSourceB.modify.applyUpdates}}',
@@ -106,24 +109,24 @@ var taskList = [{
 }, {
   'name': 'closeA',
   'description': 'Closes the Source and frees up memory',
-  'task': '{{csvSourceA.close()}}',
+  'task': '{{csvSourceA.close}}',
   'params': []
 }, {
   'name': 'closeB',
   'description': 'Closes the Source and frees up memory',
-  'task': '{{csvSourceB.close()}}',
+  'task': '{{csvSourceB.close}}',
   'params': []
 }, {
   'name': 'readFileA',
   'description': 'Read the data to compare',
   'task': fs.readFileAsync,
-  'params': [csvAFileName]
+  'params': [csvAFileName, 'utf8']
 }, {
   'name': 'readFileB',
   'description': 'Read the data to compare',
   'task': fs.readFileAsync,
-  'params': [csvBFileName]
-}*/];
+  'params': [csvBFileName, 'utf8']
+}];
 
 tools.iterateTasks(taskList, 'test sync', true).then(function (results) {
   var resultObj = {};
