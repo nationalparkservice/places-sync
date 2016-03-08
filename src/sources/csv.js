@@ -39,7 +39,7 @@ var writeCsv = function (data, columns, filePath, fileEncoding) {
       if (e) {
         reject(e);
       } else {
-        fs.writeFileAsync(filePath + '.csv', r, fileEncoding).then(fulfill).catch(reject);
+        fs.writeFileAsync(filePath, r, fileEncoding).then(fulfill).catch(reject);
       }
     });
   });
@@ -55,7 +55,6 @@ var readCsv = function (data, predefinedColumns) {
       } else if (r.length < 2 && !predefinedColumns) {
         reject(new Error('CSV Must have at least one row, or have its columns defined'));
       } else if (predefinedColumns && r.length < 2) {
-        console.log(predefinedColumns);
         fulfill({
           'data': [],
           'columns': predefinedColumns
