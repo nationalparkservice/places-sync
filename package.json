@@ -7,14 +7,18 @@
     "email": "nate_irwin@nps.gov"
   }],
   "dependencies": {
-    "bluebird": "3.3.3",
+    "bluebird": "3.3.4",
+    "chalk": "1.1.1",
     "csv": "0.4.6",
     "fandlebars": "git+https://github.com/jimmyrocks/fandlebars#master",
     "immutable": "3.7.6",
     "json-stringify-pretty-compact": "1.0.1",
     "minimist": "1.2.0",
+    "pg": "4.5.1",
     "sqlite3": "3.1.1",
-    "tape": "4.4.0",
+    "superagent": "1.8.1",
+    "tape": "4.5.1",
+    "terraformer-arcgis-parser": "1.0.4",
     "xmljs_trans_js": "git+https://github.com/jimmyrocks/xmljs_trans_js.git#master"
   },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",

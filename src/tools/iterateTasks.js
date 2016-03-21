@@ -1,5 +1,8 @@
-var Bluebird = require('bluebird');
+var Promise = require('bluebird');
 var fandlebars = require('fandlebars');
+Promise.config({
+  'longStackTraces': true
+});
 
 var applyParams = function (params, tasks, results) {
   var resultObj = {};
@@ -30,8 +33,9 @@ var reporter = function (verbose) {
 
 module.exports = function (list, taskName, verbose, errorArray) {
   var messages = [];
+  messages._iterateTasksStats = [];
   var report = reporter(verbose);
-  return new Bluebird(function (listResolve, listReject) {
+  return new Promise(function (listResolve, listReject) {
     var exec = function (sublist, msgList, callback) {
       var nextList = [];
       var params = Array.isArray(sublist[0].params) ? sublist[0].params : [sublist[0].params];
@@ -63,15 +67,19 @@ module.exports = function (list, taskName, verbose, errorArray) {
           return taskResObj;
         };
         taskResObj.catch = function (catchFn) {
+          e.message = '[' + sublist[0].name + '] ' + e.message;
           catchFn(e);
           return taskResObj;
         };
       }
+      var start = new Date().getTime();
       taskResObj.then(function (msg) {
+        var end = new Date().getTime();
         messages.push(msg);
         if (sublist[0].name && parseInt(sublist[0].name, 10).toString() !== sublist[0].name.toString()) {
           messages[sublist[0].name.toString()] = msg;
         }
+        messages._iterateTasksStats.push((end - start) + 'ms');
         nextList = sublist.slice(1);
         if (nextList.length > 0) {
           exec(nextList, messages, callback);
@@ -86,10 +94,12 @@ module.exports = function (list, taskName, verbose, errorArray) {
     };
 
     if (list.length > 0) {
+      // TODO: This can cause stack overflows, come up with a better way to run this
+      // It might require some cool trickery with Promise.all on some functions
       exec(list, messages, function (e, r) {
         var resolveValue;
         if (e) {
-          resolveValue = Array.isArray(e) && errorArray ? e : e[e.length - 1];
+          resolveValue = errorArray ? e : e[e.length - 1];
           resolveValue.taskName = taskName;
           listReject(resolveValue);
         } else {

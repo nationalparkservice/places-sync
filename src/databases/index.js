@@ -3,21 +3,19 @@
 // connection.type IS required by this step
 
 var tools = require('../tools');
+var Promise = require('bluebird');
 var databases = tools.requireDirectory(__dirname, [__filename]);
 
 var DatabaseObject = function (database) {
   var returnObject = {
     'query': function (query, params) {
+      // console.log('q', query, params);
       return database.query(query, params);
     },
     'queryList': function (query, paramList) {
-      return tools.iterateTasks(paramList.map(function (params, index, orig) {
-        return {
-          'name': 'Running Query List Item [' + (index + 1) + '/' + orig.length + ']',
-          'task': returnObject.query,
-          'params': [query, params]
-        };
-      }), 'query list');
+      return Promise.all(paramList.map(function (params) {
+        return returnObject.query(query, params);
+      }));
     },
     'close': function () {
       return database.close();

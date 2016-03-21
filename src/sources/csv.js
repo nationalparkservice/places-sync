@@ -10,6 +10,7 @@ var Immutable = require('immutable');
 var tools = require('../tools');
 var castToSqliteType = require('./helpers/castToSqliteType');
 var updateJsonSource = require('./helpers/updateJsonSource');
+var columnsFromConfig = require('./helpers/columnsFromConfig');
 var fs = Promise.promisifyAll(require('fs'));
 
 var WriteFn = function (data, columns, filePath, fileEncoding) {
@@ -85,6 +86,7 @@ module.exports = function (sourceConfig) {
   return new Promise(function (fulfill, reject) {
     // Clean up the connectionConfig, and set the defaults
     var connectionConfig = new Immutable.Map(sourceConfig.connection);
+    var fieldsConfig = new Immutable.Map(sourceConfig.fields);
     if (typeof connectionConfig.get('filePath') !== 'string') {
       throw new Error('filePath must be defined for a CSV file');
     }
@@ -103,12 +105,7 @@ module.exports = function (sourceConfig) {
       'params': ['{{openFile}}', sourceConfig.columns]
     }];
     tools.iterateTasks(tasks, 'csv').then(function (r) {
-      var columns = r[1].columns.map(function (column) {
-        column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
-        column.lastUpdatedField = tools.arrayify(sourceConfig.lastUpdatedField).indexOf(column.name) !== -1;
-        column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
-        return column;
-      });
+      var columns = columnsFromConfig(r.convertFromCsv.columns, sourceConfig.fields);
       fulfill({
         'data': r[1].data,
         'columns': columns,

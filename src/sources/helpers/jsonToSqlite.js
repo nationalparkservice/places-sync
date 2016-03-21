@@ -2,15 +2,15 @@ var tools = require('../../tools');
 var Promise = require('bluebird');
 var database = require('../../databases');
 
-var getColumnInfo = function (data, existingColumns, sourceConfig) {
+var getColumnInfo = function(data, existingColumns) {
   // Figure out what the columns are
   // Fill in any values that we didn't have before
-  // If there defined columns, use only columns that aren in the defined list
+  // If there are defined columns, use only columns that arent in the defined list
   var newColumns = [];
   var defaultValues = {};
   // Try to read column info from the data, if data exists, otherwise use the existing columns
   if (data) {
-    data.forEach(function (row) {
+    data.forEach(function(row) {
       for (var column in row) {
         var columnIndex = tools.simplifyArray(newColumns).indexOf(column) > -1 ? tools.simplifyArray(newColumns).indexOf(column) : newColumns.push({
           'name': column,
@@ -19,8 +19,9 @@ var getColumnInfo = function (data, existingColumns, sourceConfig) {
         // Define the type we're going to use for SQLite
         newColumns[columnIndex].sqliteType = tools.getDataType(row[column], newColumns[columnIndex].sqliteType || 'integer', tools.getJsType(row[column]));
         // If every value in the table for a single column is the same, we'll assume that to be the default
+        // A table will need more than one row for this to work, so we limit it with a (data > 1) if
         if (defaultValues[column]) {
-          defaultValues[column].hasDefault = defaultValues[column].hasDefault && defaultValues[column].firstValue === row[column];
+          defaultValues[column].hasDefault = defaultValues[column].hasDefault && defaultValues[column].firstValue === row[column] && data.length > 1;
         } else {
           defaultValues[column] = {
             'hasDefault': true,
@@ -30,7 +31,7 @@ var getColumnInfo = function (data, existingColumns, sourceConfig) {
       }
     });
     // Add in the default values if there are any
-    newColumns = newColumns.map(function (c) {
+    newColumns = newColumns.map(function(c) {
       if (defaultValues[c.name].hasDefault === true) {
         c.defaultValue = defaultValues[c.name].firstValue;
       }
@@ -42,49 +43,46 @@ var getColumnInfo = function (data, existingColumns, sourceConfig) {
 
   // If there defined columns, use only columns that aren't in the defined list
   if (existingColumns) {
-    newColumns = existingColumns.map(function (c) {
-      var matchedColumn = newColumns.filter(function (nc) {
+    newColumns = existingColumns.map(function(c) {
+      var matchedColumn = newColumns.filter(function(nc) {
         return nc.name === c.name;
       })[0] || {};
-      c.sqliteType = c.sqliteType || matchedColumn.sqliteType;
-      c.defaultValue = c.defaultValue === undefined ? matchedColumn.defaultValue : c.defaultValue;
+      for (var k in matchedColumn) {
+        c[k] = c[k] === 'undefined' ? matchedColumn[k] : c[k];
+      }
       return tools.denullify(c, true, [undefined]);
     });
   }
-
   return newColumns;
 };
 
-module.exports = function (data, existingColumns, sourceConfig) {
-  return new Promise(function (fulfill, reject) {
-    var columns = getColumnInfo(data, existingColumns, sourceConfig);
+module.exports = function(data, existingColumns) {
+  return new Promise(function(fulfill, reject) {
+    var columns = getColumnInfo(data, existingColumns);
 
     var tempDbConfig = {
       'type': 'sqlite',
       'connection': ':memory:'
     };
 
-    var createColumns = function (includeColumns) {
-      var primaryKeys = includeColumns.filter(function (c) {
-        return c.primaryKey;
-      });
-
-      var returnValue = '(' + includeColumns.map(function (column) {
-        // console.log('c', column);
-        var createColumn = '"' + column.name + '" ' + column.sqliteType;
+    var createColumns = function(includeColumns) {
+      var primaryKeys = [];
+      var columnArray = includeColumns.map(function(column) {
+        var createColumn = tools.surroundValues(column.name, '"') + ' ' + column.sqliteType;
         if (column.defaultValue !== undefined) {
-          createColumn += " DEFAULT '" + column.defaultValue + "'";
+          createColumn += ' DEFAULT ' + tools.surroundValues(tools.normalizeToType(column.defaultValue), typeof tools.normalizeToType(column.defaultValue) === 'string' ? "'" : "") + ' ';
         } else if (column.notNull === true) {
-          createColumn += ' NOT NULL';
+          createColumn += ' NOT NULL ';
+        }
+        if (column.primaryKey === true || typeof column.primaryKey === 'number') {
+          primaryKeys.push(column.name);
         }
         return createColumn;
-      }).join(', ');
-      if (sourceConfig.primaryKey && tools.arrayify(sourceConfig.primaryKey).length > 0) {
-        returnValue += ', PRIMARY KEY (' + tools.surroundValues(tools.simplifyArray(primaryKeys), '"', '"').join(', ') + ')';
+      });
+      if (primaryKeys.length > 0) {
+        columnArray.push('PRIMARY KEY (' + tools.surroundValues(primaryKeys, '"').join(', ') + ')');
       }
-      returnValue += ');';
-      // console.log(returnValue);
-      return returnValue;
+      return '(' + columnArray.join(', ') + ');';
     };
 
     // Create a 'CREATE TABLE' statement for the sqlite database
@@ -95,12 +93,11 @@ module.exports = function (data, existingColumns, sourceConfig) {
     // console.log(createStatementCache);
     // console.log(createStatementUpdate);
     // console.log(createStatementRemove);
-    // console.log(createStatementKeyCache);
     // Create an 'INSERT INTO' statement for the sqlite database
     // TODO, use the createQueries tool
-    var insertStatement = 'INSERT INTO "cached" (' + tools.simplifyArray(columns).map(function (c) {
+    var insertStatement = 'INSERT INTO "cached" (' + tools.simplifyArray(columns).map(function(c) {
       return '"' + c + '"';
-    }).join(', ') + ') VALUES (' + tools.simplifyArray(columns).map(function (c) {
+    }).join(', ') + ') VALUES (' + tools.simplifyArray(columns).map(function(c) {
       return '{{' + c + '}}';
     }).join(', ') + ')';
 
@@ -126,7 +123,7 @@ module.exports = function (data, existingColumns, sourceConfig) {
       'task': '{{Create Database.queryList}}',
       'params': [insertStatement, tools.arrayify(data)]
     }];
-    tools.iterateTasks(taskList, 'jsonToSqlite', true).then(function (a) {
+    tools.iterateTasks(taskList, 'jsonToSqlite', false).then(function(a) {
       fulfill(tools.arrayGetLast(a, true));
     }).catch(reject);
   });

@@ -8,20 +8,23 @@ var Immutable = require('immutable');
 var tools = require('../tools');
 var fs = Promise.promisifyAll(require('fs'));
 var stringify = require('json-stringify-pretty-compact');
+var columnsFromConfig = require('./helpers/columnsFromConfig');
 
 var WriteFn = function (data, columns, filePath, fileEncoding) {
   // This is in here to prevent a memory leak
-  var updateJsonSource = require('./helpers/updateJsonSource');
-  // TODO: instead of passing data back in, we could just read it from the file again
-  // That way we could take it out of memory
+  var updateJsonSource = filePath ? require('./helpers/updateJsonSource') : undefined;
 
   return function (updated, removed) {
     return new Promise(function (fulfill, reject) {
-      updateJsonSource(data, updated, removed, columns)
-        .then(function (newData) {
-          return writeJson(newData, columns, filePath, fileEncoding).then(fulfill).catch(reject);
-        })
-        .catch(reject);
+      if (!updateJsonSource) {
+        reject(new Error('Cannot write to a JSON source without a filePath specified in its config'));
+      } else {
+        updateJsonSource(data, updated, removed, columns)
+          .then(function (newData) {
+            return writeJson(newData, columns, filePath, fileEncoding).then(fulfill).catch(reject);
+          })
+          .catch(reject);
+      }
     });
   };
 };
@@ -34,11 +37,22 @@ var writeJson = function (data, columns, filePath, fileEncoding) {
     });
     return newRow;
   });
-  return fs.writeFileAsync(filePath + '.json', stringify(data), fileEncoding);
+  return fs.writeFileAsync(filePath, stringify(data), fileEncoding);
 };
 
 var readJson = function (data, predefinedColumns) {
-  data = typeof data === 'string' ? JSON.parse(data) : data;
+  // Attempt to parse it if it's a string
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (e) {
+      if (data.length === 0) {
+        data = [];
+      } else {
+        throw new Error('Data is not valid JSON')
+      }
+    }
+  }
   var columns = predefinedColumns || [];
   if (!predefinedColumns) {
     data.forEach(function (row) {
@@ -67,6 +81,7 @@ module.exports = function (sourceConfig) {
   return new Promise(function (fulfill, reject) {
     // Clean up the connectionConfig, and set the defaults
     var connectionConfig = new Immutable.Map(sourceConfig.connection);
+    var fieldsConfig = new Immutable.Map(sourceConfig.fields);
     if (typeof connectionConfig.get('filePath') !== 'string' && connectionConfig.get('data') === undefined) {
       throw new Error('data or filePath must be defined for a JSON file');
     }
@@ -88,17 +103,12 @@ module.exports = function (sourceConfig) {
       'task': readJson,
       'params': ['{{openFile}}', sourceConfig.columns]
     }];
-    tools.iterateTasks(tasks).then(function (r) {
-      var columns = r[1].columns.map(function (column) {
-        column.primaryKey = tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1;
-        column.lastUpdatedField = tools.arrayify(sourceConfig.lastUpdatedField).indexOf(column.name) !== -1;
-        column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
-        return column;
-      });
+    tools.iterateTasks(tasks).then(function (results) {
+      var columns = columnsFromConfig(results.createDatabaseFromJson.columns, sourceConfig.fields);
       fulfill({
-        'data': r[1].data,
+        'data': results.createDatabaseFromJson.data,
         'columns': columns,
-        'writeFn': new WriteFn(r[1].data, columns, connectionConfig.get('filePath'), connectionConfig.get('encoding')),
+        'writeFn': new WriteFn(results.createDatabaseFromJson.data, columns, connectionConfig.get('filePath'), connectionConfig.get('encoding')),
         'querySource': false
       });
     }).catch(reject);

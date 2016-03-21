@@ -6,28 +6,15 @@
 var Promise = require('bluebird');
 var guid = require('../../tools/guid');
 var jsonSource = require('../');
-var simplifyArray = require('../../tools/simplifyArray');
 
 module.exports = function (fullData, updated, removed, columns) {
-  var primaryKey = simplifyArray(columns.filter(function (c) {
-    return c.primaryKey === true;
-  }));
-  var lastUpdatedField = simplifyArray(columns.filter(function (c) {
-    return c.lastUpdatedField === true;
-  }));
-  var removedField = simplifyArray(columns.filter(function (c) {
-    return c.removedField === true;
-  }));
   var tempSource = {
     'name': guid(),
     'connection': {
       'data': fullData,
       'type': 'json'
     },
-    'columns': columns,
-    'lastUpdatedField': lastUpdatedField,
-    'removedField': removedField,
-    'primaryKey': primaryKey
+    'columns': columns
   };
 
   return jsonSource(tempSource).then(function (source) {

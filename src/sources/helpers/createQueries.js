@@ -80,13 +80,13 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField) 
       return 'SELECT COALESCE(MAX("' + tableName + '"."' + lastUpdatedField + '"), -1) AS "lastUpdate" FROM "' + tableName + '" ';
     },
     'cleanUpdate': function () {
-      return queries.removed('updated');
+      return queries.remove('updated');
     },
     'runUpdate': function () {
       return queries.insert('updated');
     },
     'cleanRemove': function () {
-      return queries.removed('removed');
+      return queries.remove('removed');
     },
     'runRemove': function () {
       return queries.insert('removed');
@@ -116,13 +116,19 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField) 
     }
   };
   return function (queryName, values, keys, tableName) {
-    var where = values ? createWhereObj(tools.simplifyArray(keys || queryKey), values) : undefined;
+    var where;
+    if (values) {
+      if (queryName === 'selectSince') {
+        // Special case for the last updated which requires a great than
+        where = tools.createWhereClause(tools.setProperty(lastUpdatedField, {
+          '$gt': values[lastUpdatedField]
+        }));
+      } else {
+        where = createWhereObj(tools.simplifyArray(keys || queryKey), values);
+      }
+    }
     var query = queries[queryName](tableName, tools.simplifyArray(keys || queryKey)) + (where ? ' WHERE ' + where[0] : ';');
 
-    // Special case for the last updated which requires a great than
-    if (queryName === 'selectSince') {
-      query = queries['select'](tableName) + ' WHERE "' + lastUpdatedField + '" > ' + values[lastUpdatedField] + ';';
-    }
     return [query, where && where[1]];
   };
 };

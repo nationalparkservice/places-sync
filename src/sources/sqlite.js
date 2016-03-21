@@ -1,9 +1,8 @@
 /* SQLite File:
  *   *connection.filePath: (path to the sqlite file)
- *   *tableName, defaults to name if this isn't present
- *   *primaryKey is read from the sqlite database, if one is supplied it will use the supplied one instead
- *   *  using a different primary key may cause unexpected issues (with null and unique contraints)
- *   *  so pay attention to this is you're using custom primary keys
+ *   *  using a different primary key than what is defined in sqlite may
+ *   * cause unexpected issues (with null and unique contraints)
+ *   *  so pay attention to this if you're using custom primary keys
  */
 
 var Promise = require('bluebird');
@@ -15,71 +14,66 @@ var tools = {
 };
 var databases = require('../databases');
 var CreateQueries = require('./helpers/createQueries');
+var columnsFromConfig = require('./helpers/columnsFromConfig');
+var columnsToKeys = require('./helpers/columnsToKeys');
 
 var QuerySource = function (connection, options, tableName, columns) {
   return function (type, whereObj, returnColumns) {
     returnColumns = returnColumns || columns;
-    var primaryKeys = returnColumns.filter(function (c) {
-      return c.primaryKey;
-    });
-    var lastUpdatedField = returnColumns.filter(function (c) {
-      return c.lastUpdatedField;
-    })[0];
-    lastUpdatedField = lastUpdatedField && lastUpdatedField.name;
-    var removedField = returnColumns.filter(function (c) {
-      return c.removedField;
-    })[0];
-    removedField = removedField && removedField.name;
-    var createQueries = new CreateQueries(columns, primaryKeys, lastUpdatedField, removedField);
-    // if (type === 'selectLastUpdate') {
-    //   console.log(type, whereObj, returnColumns, tableName);
-    //   console.log(createQueries(type, whereObj, returnColumns, tableName));
-    //   process.exit(0);
-    // }
+    var keys = columnsToKeys(returnColumns);
+    var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField);
     return connection.query.apply(this, createQueries(type, whereObj, returnColumns, tableName));
   };
 };
 
 var WriteFn = function (connection, options, tableName, columns) {
-  var primaryKeys = columns.filter(function (c) {
-    return c.primaryKey;
-  });
-  var createQueries = new CreateQueries(columns, primaryKeys);
+  var keys = columnsToKeys(columns);
+  var createQueries = new CreateQueries(columns, keys.primaryKeys);
 
   return function (updated, removed) {
     var tasks = [];
-    var removedField = columns.filter(function (c) {
-      return c.removedField;
-    })[0];
-    if (removedField) {
-      // If we have a removedField, we update all records to have the removedFieldValue (hardcoded to 1 for now)
+    var removeTasks = [];
+    var keys = columnsToKeys(columns);
+    if (keys.removedFieldValue !== undefined) {
       removed.forEach(function (row) {
-        row[removedField.name] = 1; // TODO removedFieldValue
+        row[keys.removedField] = keys.removedFieldValue;
         updated.push(row);
       });
       removed = [];
     }
     updated.forEach(function (updatedRow, i) {
       tasks.push({
-        'name': 'Remove Update Row ' + i,
-        'task': connection.query,
-        'params': createQueries('remove', updatedRow, primaryKeys, tableName)
-      });
-      tasks.push({
-        'name': 'Write Update Row ' + i,
-        'task': connection.query,
-        'params': [createQueries('insert', undefined, columns, tableName)[0], updatedRow]
+        'name': 'Remove / Write Update Row ' + i + JSON.stringify(updatedRow),
+        'task': tools.iterateTasks,
+        'params': [
+          [{
+            'name': 'Remove',
+            'task': connection.query,
+            'params': createQueries('remove', updatedRow, keys.primaryKeys, tableName)
+          }, {
+            'name': 'Write',
+            'task': connection.query,
+            'params': [createQueries('insert', undefined, columns, tableName)[0], updatedRow]
+          }],
+          'update sqlite db', true
+        ]
       });
     });
     removed.forEach(function (removedRow, i) {
-      tasks.push({
+      removeTasks.push({
         'name': 'Remove Removed Row ' + i,
-        'task': connection.query.apply,
-        'params': [this, createQueries('remove', removedRow, primaryKeys, tableName)]
+        'task': connection.query,
+        'params': createQueries('remove', removedRow, keys.primaryKeys, tableName)
       });
     });
 
-    return tools.iterateTasks(tasks, 'update sqlite db', true);
+    return Promise.all(tasks.map(function (task) {
+      return task.task.apply(this, task.params);
+    })).then(function () {
+      return Promise.all(removeTasks.map(function (removeTask) {
+        return removeTask.task.apply(this, removeTask.params);
+      }));
+    });
   };
 };
 
@@ -115,8 +109,8 @@ module.exports = function (sourceConfig, options) {
     if (typeof connectionConfig.get('filePath') !== 'string') {
       throw new Error('filePath must be defined for a SQLite file');
     }
-    if (typeof (sourceConfig.tableName || sourceConfig.name) !== 'string') {
-      throw new Error('tableName or name must be defined for a SQLite file');
+    if (typeof (connectionConfig.get('table')) !== 'string') {
+      throw new Error('A table name must be set in the connection for a SQLite file');
     }
 
     // Define the taskList
@@ -132,20 +126,15 @@ module.exports = function (sourceConfig, options) {
       'name': 'convertFromTable',
       'description': 'Takes the source data and creates an update/remove sqlite table in memory for it',
       'task': readSqlite,
-      'params': ['{{createDbConnection}}', options, (sourceConfig.tableName || sourceConfig.name)]
+      'params': ['{{createDbConnection}}', options, connectionConfig.get('table')]
     }];
     tools.iterateTasks(tasks, 'sqlite').then(function (r) {
-      var columns = r[1].columns.map(function (column) {
-        column.primaryKey = sourceConfig.primaryKey ? tools.arrayify(sourceConfig.primaryKey).indexOf(column.name) !== -1 : column.primaryKey;
-        column.lastUpdatedField = tools.arrayify(sourceConfig.lastUpdatedField).indexOf(column.name) !== -1;
-        column.removedField = tools.arrayify(sourceConfig.removedField).indexOf(column.name) !== -1;
-        return column;
-      });
+      var columns = columnsFromConfig(r.convertFromTable.columns, sourceConfig.fields);
       fulfill({
         'data': r[1].data,
         'columns': columns,
-        'writeFn': new WriteFn(r[0], options, sourceConfig.tableName || sourceConfig.name, columns),
-        'querySource': new QuerySource(r[0], options, (sourceConfig.tableName || sourceConfig.name), columns)
+        'writeFn': new WriteFn(r[0], options, connectionConfig.get('table'), columns),
+        'querySource': new QuerySource(r[0], options, connectionConfig.get('table'), columns)
       });
     }).catch(reject);
   });
