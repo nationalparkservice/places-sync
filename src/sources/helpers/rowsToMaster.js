@@ -3,11 +3,14 @@ var keyCombine = require('./keyCombine');
 var md5 = require('../../tools/md5');
 var simplifyArray = require('../../tools/simplifyArray');
 
-var rowsToMaster = function (rows, columns, sourceName, processName, removeRow) {
+var rowsToMaster = function (rows, columns, sourceName, processName, foreignKeys, removeRow) {
   var keys = columnsToKeys(columns);
   return rows.map(function (row) {
+    var primaryKey = keyCombine(keys.primaryKeys, row);
+    var foreignKey = (foreignKeys && foreignKeys[primaryKey]) || primaryKey;
     return {
-      'key': keyCombine(keys.primaryKeys, row),
+      'key': primaryKey,
+      'foreign_key': foreignKey,
       'process': processName || 'sync',
       'source': sourceName,
       'hash': md5(keyCombine(simplifyArray(columns), row)),
