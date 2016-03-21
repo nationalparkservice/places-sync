@@ -21,7 +21,12 @@ var WriteFn = function (data, columns, filePath, fileEncoding) {
       } else {
         updateJsonSource(data, updated, removed, columns)
           .then(function (newData) {
-            return writeJson(newData, columns, filePath, fileEncoding).then(fulfill).catch(reject);
+            return writeJson(newData, columns, filePath, fileEncoding).then(function () {
+              fulfill({
+                'updated': updated,
+                'removed': removed
+              });
+            }).catch(reject);
           })
           .catch(reject);
       }
