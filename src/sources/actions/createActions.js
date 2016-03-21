@@ -11,8 +11,11 @@ var validateRow = require('../helpers/validateRow');
 module.exports = function (database, columns, writeToSource, querySource, masterCache, sourceConfig) {
   // Load the basic query helpers
   var keys = columnsToKeys(columns);
-  var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField);
   var modifySource = new ModifySource(database, columns);
+  var queryDatabase = function () {
+    var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField);
+    return database.query.apply(this, createQueries.apply(this, arguments));
+  };
 
   // Define the actions
   var actions = {
@@ -20,7 +23,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
       'selectAll': function (rowData, requestedColumns) {
         requestedColumns = requestedColumns || columns;
         // Selects all fields, if not rowData is supplied, it will query everything
-        return database.query.apply(this, createQueries('selectAllInCache', rowData, requestedColumns));
+        return queryDatabase('selectAllInCache', rowData, requestedColumns);
       }
     },
     'get': {
@@ -37,7 +40,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
         if (querySource) {
           return querySource(type, rowData, columns);
         } else {
-          return database.query.apply(this, createQueries(type, rowData, columns, 'cached'));
+          return queryDatabase(type, rowData, columns, 'cached');
         // since we pull from cached, we require a save before this will update
         // pulling from cache.selectAll will fix that
         // but we don't have a select since query for that (yet?)
@@ -71,7 +74,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
                 fulfill(r[0].lastUpdate);
               }).catch(reject);
             } else {
-              database.query.apply(this, createQueries('selectLastUpdate', rowData, undefined, 'cached')).then(function (r) {
+              queryDatabase('selectLastUpdate', rowData, undefined, 'cached').then(function (r) {
                 fulfill(r[0].lastUpdate);
               }).catch(reject);
             }
@@ -143,24 +146,33 @@ module.exports = function (database, columns, writeToSource, querySource, master
     },
     'save': function () {
       // Writes the changes to the original file
-      // TODO: Should this return the updates/removes that it saved?
       return Promise.all([
-        database.query.apply(this, createQueries('getUpdated', undefined, columns)),
-        database.query.apply(this, createQueries('getRemoved', undefined, columns))
+        queryDatabase('getUpdated', undefined, columns),
+        queryDatabase('getRemoved', undefined, columns)
       ]).then(function (results) {
-        return Promise.all([
-          masterCache ? masterCache.modify.applyUpdates({
-            updated: rowsToMaster(results[0], columns, sourceConfig.name, sourceConfig.connection.processName, false),
-            removed: rowsToMaster(results[1], columns, sourceConfig.name, sourceConfig.connection.processName, true)
-          }) : tools.dummyPromise(),
-          writeToSource(results[0], results[1]),
-          modifySource.refresh(results[0], results[1])
-        ]).then(function () {
-          var fn = masterCache ? masterCache.save : tools.dummyPromise;
-          return fn().then(function () {
-            return tools.dummyPromise({
-              'updated': results[0],
-              'removed': results[1]
+        return writeToSource(results[0], results[1]).then(function (writeResults) {
+          // Write results may add a foreign key in for us to use when writing to master
+
+          // The write results should return what was written
+          // This way we don't write failure to the master
+          // We can also get foreign keys
+          var updated = (writeResults && writeResults['updated']) || results[0];
+          var removed = (writeResults && writeResults['removed']) || results[1];
+          var foreignKeys = writeResults && writeResults['foreignKeys'];
+
+          return Promise.all([
+            masterCache ? masterCache.modify.applyUpdates({
+              updated: rowsToMaster(updated, columns, sourceConfig.name, sourceConfig.connection.processName, foreignKeys, false),
+              removed: rowsToMaster(removed, columns, sourceConfig.name, sourceConfig.connection.processName, foreignKeys, true)
+            }) : tools.dummyPromise(),
+            modifySource.refresh(results[0], results[1])
+          ]).then(function () {
+            var fn = masterCache ? masterCache.save : tools.dummyPromise;
+            return fn().then(function () {
+              return tools.dummyPromise({
+                'updated': updated,
+                'removed': removed
+              });
             });
           });
         });
