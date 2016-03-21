@@ -10,7 +10,8 @@ var Immutable = require('immutable');
 var tools = {
   'iterateTasks': require('../tools/iterateTasks'),
   'arrayify': require('../tools/arrayify'),
-  'updateObject': require('../tools/updateObject')
+  'updateObject': require('../tools/updateObject'),
+  'dummyPromise': require('../tools/dummyPromise')
 };
 var databases = require('../databases');
 var CreateQueries = require('./helpers/createQueries');
@@ -71,7 +72,12 @@ var WriteFn = function (connection, options, tableName, columns) {
       return task.task.apply(this, task.params);
     })).then(function () {
       return Promise.all(removeTasks.map(function (removeTask) {
-        return removeTask.task.apply(this, removeTask.params);
+        return removeTask.task.apply(this, removeTask.params).then(function () {
+          return tools.dummyPromise({
+            'updated': updated,
+            'removed': removed
+          });
+        });
       }));
     });
   };
