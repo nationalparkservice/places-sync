@@ -20,7 +20,12 @@ var WriteFn = function (data, columns, filePath, fileEncoding) {
     return new Promise(function (fulfill, reject) {
       updateJsonSource(data, updated, removed, columns)
         .then(function (newData) {
-          return writeCsv(newData, columns, filePath, fileEncoding).then(fulfill).catch(reject);
+          return writeCsv(newData, columns, filePath, fileEncoding).then(function () {
+            fulfill({
+              'updated': updated,
+              'removed': removed
+            });
+          }).catch(reject);
         })
         .catch(reject);
     });
