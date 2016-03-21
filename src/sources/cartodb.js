@@ -5,7 +5,8 @@ var Promise = require('bluebird');
 var Immutable = require('immutable');
 var tools = {
   'iterateTasks': require('../tools/iterateTasks'),
-  'simplifyArray': require('../tools/simplifyArray')
+  'simplifyArray': require('../tools/simplifyArray'),
+  'dummyPromise': require('../tools/dummyPromise')
 };
 var CreateQueries = require('./helpers/createQueries');
 var columnsFromConfig = require('./helpers/columnsFromConfig');
@@ -67,7 +68,12 @@ var WriteFn = function (connection, options, tableName, columns) {
       return task.task.apply(this, task.params);
     })).then(function () {
       return Promise.all(removeTasks.map(function (removeTask) {
-        return removeTask.task.apply(this, removeTask.params);
+        return removeTask.task.apply(this, removeTask.params).then(function () {
+          return tools.dummyPromise({
+            'updated': updated,
+            'removed': removed
+          });
+        });
       }));
     });
   };
@@ -106,8 +112,8 @@ var readCartoDB = function (connection, options, tableName, tableSchema) {
   query = '';
   query += 'SELECT distinct ';
   query += 'unnest("index_keys") AS "name" ';
-  query += 'FROM CDB_TableIndexes(\'' + connection.account + '.' + tableName +  '\') ';
-  query += 'WHERE index_primary = true;'
+  query += "FROM CDB_TableIndexes('" + connection.account + '.' + tableName + "') ";
+  query += 'WHERE index_primary = true;';
   queries.push(query);
 
   return new Promise(function (fulfill, reject) {
@@ -121,7 +127,6 @@ var readCartoDB = function (connection, options, tableName, tableSchema) {
 
       // Convert the SQLite column format into ours
       var columns = columnNames.map(function (column) {
-
         // Get types for when cartodb says "USER-DEFINED"
         var type = column.pgtype;
         if (type === 'USER-DEFINED' && fields[column.name] && fields[column.name].type) {
