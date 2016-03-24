@@ -158,10 +158,10 @@ var getSourceInfo = function (originalSource, sourceDataRaw, sourceUrl) {
   };
   if (sourceData.editingInfo) {
     sourceInfo.editingInfo = {
-      'dateCreated': sourceData.editFieldsInfo.creationDateField,
-      'userCreated': sourceData.editFieldsInfo.creatorField,
-      'dateEdited': sourceData.editFieldsInfo.editDateField,
-      'userEdited': sourceData.editFieldsInfo.editorField
+      'dateCreated': sourceData.editFieldsInfo && sourceData.editFieldsInfo.creationDateField,
+      'userCreated': sourceData.editFieldsInfo && sourceData.editFieldsInfo.creatorField,
+      'dateEdited': sourceData.editFieldsInfo && sourceData.editFieldsInfo.editDateField,
+      'userEdited': sourceData.editFieldsInfo && sourceData.editFieldsInfo.editorField
     };
   }
 
