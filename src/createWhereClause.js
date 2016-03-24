@@ -1,4 +1,3 @@
-    at Interface.<anonymous> (repl.js:239:12)
 var md5 = require('./md5');
 var tools = require('./tools');
 
