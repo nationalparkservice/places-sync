@@ -9,7 +9,7 @@ var columnsFromConfig = require('./helpers/columnsFromConfig');
 var columnsToKeys = require('./helpers/columnsToKeys');
 var databases = require('../databases');
 
-var WriteFn = function (connection, options, tableName, columns) {
+var WriteFn = function (connection, options, columns) {
   var keys = columnsToKeys(columns);
 
   return function (updated, removed) {
@@ -69,6 +69,9 @@ module.exports = function (sourceConfig, options) {
         reject(new Error(field + ' must be defined for an OpenStreetMap Connection'));
       }
     });
+    if (tools.getJsType(sourceConfig.columns) !== 'array') {
+      reject(new Error('Source Columns must be defined for an OpenStreetMap Connection'));
+    }
 
     // Define the taskList
     var tasks = [{
@@ -81,11 +84,11 @@ module.exports = function (sourceConfig, options) {
       }]
     }];
     tools.iterateTasks(tasks, 'osm').then(function (r) {
-      var columns = columnsFromConfig(r.convertFromTable.columns, sourceConfig.fields);
+      var columns = columnsFromConfig(sourceConfig.columns, sourceConfig.fields);
       fulfill({
         'data': [], // TODO: Support queries from OpenStreetMap
         'columns': columns,
-        'writeFn': new WriteFn(r[0], options, connectionConfig.get('table'), columns),
+        'writeFn': new WriteFn(r[0], options, columns),
         'querySource': undefined // TODO: Support queries from OpenStreetMap
       });
     }).catch(reject);
