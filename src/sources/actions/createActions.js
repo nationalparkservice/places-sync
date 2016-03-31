@@ -48,13 +48,21 @@ module.exports = function (database, columns, writeToSource, querySource, master
         }
       },
       'allKeys': function (rowData) {
-        // We want to get all keys as well as the date field
-        var queryKeys = JSON.parse(JSON.stringify(keys.primaryKeys));
-        queryKeys.push(keys.lastUpdatedField);
-        if (keys.hashField) {
-          queryKeys.push(keys.hashField);
-        }
-        // Gets all keys in source table
+        // Define the fields we want to return
+        var queryKeys = [];
+        var requestedColumns = ['primaryKeys', 'lastUpdatedField', 'hashField', 'foreignKeys'];
+
+        // Look through the keys to get all of these columns
+        requestedColumns.forEach(function (field) {
+          var keyFields = tools.arrayify(keys[field]);
+          if (keyFields.length) {
+            keyFields.forEach(function (value) {
+              queryKeys.push(value);
+            });
+          }
+        });
+
+        // Get all the keys (and other requested fields) from source table
         if (querySource) {
           // We can query the source directly
           return querySource('select', rowData, queryKeys);
