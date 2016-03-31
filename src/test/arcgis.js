@@ -37,6 +37,7 @@ var masterCacheConfig = {
   },
   'fields': {
     // 'primaryKey': ['key', 'process', 'source'], // These do need to be defined for SQLite, because we can get this info from SQLite
+    'foreignKey': ['foreign_key'],
     'lastUpdated': 'last_updated',
     'hash': 'hash',
     'removed': 'is_removed',
