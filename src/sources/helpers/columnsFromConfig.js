@@ -14,6 +14,10 @@ var fieldMap = {
     'name': 'primaryKey',
     'process': notFalsey
   },
+  'foreignKey': {
+    'name': 'foreignKey',
+    'process': notFalsey
+  },
   'lastUpdated': {
     'name': 'lastUpdated',
     'process': notFalsey
