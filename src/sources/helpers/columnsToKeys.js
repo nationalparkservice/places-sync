@@ -9,6 +9,9 @@ module.exports = function (columns) {
     'primaryKeys': simplifyArray(columns.filter(function (c) {
       return valueExists(c.primaryKey);
     })),
+    'foreignKeys': simplifyArray(columns.filter(function (c) {
+      return valueExists(c.foreignKey);
+    })),
     'notNullFields': simplifyArray(columns.filter(function (c) {
       return valueExists(c.notNull);
     })),
