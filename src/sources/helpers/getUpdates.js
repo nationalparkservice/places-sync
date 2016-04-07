@@ -14,15 +14,21 @@ var recordsToCompare = function (records, sourceName, keys, ignoreKeys, emptyHas
   console.log('records');
   records.forEach(function (record) {
     var newKey = keyCombine(keys.primaryKeys, record);
+    var newForeignKey = keyCombine(keys.foreignKeys, record);
 
     if (!ignoreKeys || ignoreKeys.indexOf(newKey) === -1) {
       var newHash = emptyHash ? null : (keys.hashField ? record[keys.hashField] : md5(keyCombine(keys.all, record)));
+
+      // TODO, this may zip the data, but right now it's just a copy of the hash
+      var newData = emptyHash ? null : (keys.dataField ? record[keys.dataField] : keyCombine(keys.all, record));
 
       returnValue.push({
         'source': sourceName,
         'lastUpdated': record[keys.lastUpdatedField],
         'key': newKey,
-        'hash': newHash
+        'foreignKey': newForeignKey,
+        'hash': newHash,
+        'data': newData
       });
     }
   });
@@ -34,7 +40,9 @@ module.exports = function (lastSyncTime, updatedSinceTime, allKeys, allMasterKey
   var jsonAllKeys = recordsToCompare(allKeys, 'user', sourceColumns, simplifyArray(jsonUpdatedRecords, 'key'), true);
   var jsonMasterKeys = recordsToCompare(allMasterKeys, 'master', {
     'primaryKeys': ['key'],
+    'foreignKeys': ['foreign_key'],
     'hashField': 'hash',
+    'dataField': 'data',
     'lastUpdatedField': 'last_updated'
   });
   var data = [].concat(jsonUpdatedRecords, jsonAllKeys, jsonMasterKeys);
@@ -65,7 +73,9 @@ module.exports = function (lastSyncTime, updatedSinceTime, allKeys, allMasterKey
     return source.get._database().query(query).then(function (changedData) {
       return source.close().then(function () {
         return new Promise(function (fulfill) {
-          var returnObject = {};
+          var returnObject = {
+            'metadata': changedData
+          };
           changedData.forEach(function (record) {
             if (!returnObject[record.action]) {
               returnObject[record.action] = [];
