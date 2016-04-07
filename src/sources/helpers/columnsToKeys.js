@@ -27,6 +27,9 @@ module.exports = function (columns) {
     'hashField': simplifyArray(columns.filter(function (c) {
       return valueExists(c.hash);
     }))[0],
+    'dataField': simplifyArray(columns.filter(function (c) {
+      return valueExists(c.data);
+    }))[0],
     'removedValue': ((columns.filter(function (c) {
       return valueExists(c.removed);
     })[0]) || {}).removedValue || 'true'
