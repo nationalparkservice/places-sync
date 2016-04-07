@@ -1,7 +1,11 @@
 var Promise = require('bluebird');
-var superagent = require('superagent');
+var request = require('superagent');
 var fandlebars = require('fandlebars');
 var OAuth = require('oauth').OAuth;
+var tools = require('../tools');
+
+// Oauthify superagent
+require('superagent-oauth')(request);
 
 var format = function (output) {
   // TODO: Clean up the output from this so it's similar to all other outputs
@@ -21,7 +25,7 @@ var initialize = function (connectionConfig) {
     );
 
     // Get User Details /0.6/user/details
-    superagent.get(connectionConfig.address + '0.6/user/details.json')
+    request.get(connectionConfig.address + '0.6/user/details.json')
       .sign(oauth, connectionConfig.access_key, connectionConfig.access_secret)
       .end(function (err, res) {
         if (!err && res.status === 200) {
@@ -31,6 +35,10 @@ var initialize = function (connectionConfig) {
             connection: connectionConfig
           });
         } else {
+          console.log('^&^&^&^&^&^&^');
+          console.log(err);
+          console.log(connectionConfig);
+          console.log('^&^&^&^&^&^&^');
           reject(new Error(err));
         }
       });
@@ -40,18 +48,18 @@ var initialize = function (connectionConfig) {
 module.exports = function (connectionConfig) {
   var initializedConnection;
   var returnObject = {
-    query: function (query, params, returnRaw) {
+    query: function (query, updatedRow, primaryKeys, metadata) {
       return returnObject.verify().then(function (connection) {
         return new Promise(function (fulfill, reject) {
           console.log('&&&&&&&&&&&&&&&&&&&&&&&&& This is what i got');
-          console.log(query, params, returnRaw);
+          console.log(query, updatedRow, primaryKeys, metadata);
           console.log('&&&&&&&&&&&&&&&&&&&&&&&& ');
           /*
           var cleanedSql = fandlebars(query, params);
           var requestPath = 'https://' + connectionConfig.account + '.cartodb.com/api/v2/sql';
 
           if (cleanedSql.length > 5) {
-            superagent.post(requestPath)
+            request .post(requestPath)
               .set('Content-Type', 'application/json')
               .set('Accept', 'application/json')
               .send({
@@ -69,7 +77,7 @@ module.exports = function (connectionConfig) {
             reject('Query Too Short: (' + cleanedSql.length + ') chars');
           }
           */
-          fulfill(true);
+          reject('stopping here');
         });
       });
     },
