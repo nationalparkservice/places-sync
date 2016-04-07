@@ -10,9 +10,11 @@ var columnsToKeys = require('./helpers/columnsToKeys');
 var databases = require('../databases');
 
 var WriteFn = function (connection, options, columns) {
-  var keys = columnsToKeys(columns);
+  // var keys = columnsToKeys(columns);
 
-  return function (updated, removed) {
+  return function (updated, removed, metadata) {
+    console.log(metadata);
+    process.exit(0);
     var tasks = [];
     var removeTasks = [];
     var keys = columnsToKeys(columns);
@@ -24,6 +26,12 @@ var WriteFn = function (connection, options, columns) {
       removed = [];
     }
     updated.forEach(function (updatedRow, i) {
+      var masterKey = keys.primaryKeys.map(function (key) {
+        return updatedRow[key];
+      }).join('');
+      var matchedMetadata = tools.arrayify(metadata).filter(function (record) {
+        return record.key === masterKey;
+      });
       tasks.push({
         'name': 'Remove / Write Update Row ' + i + JSON.stringify(updatedRow),
         'task': tools.iterateTasks,
@@ -31,11 +39,11 @@ var WriteFn = function (connection, options, columns) {
           [{
             'name': 'Remove',
             'task': connection.query,
-            // 'params': createQueries('remove', updatedRow, keys.primaryKeys, tableName)
+            'params': ['remove', updatedRow, keys.primaryKeys, matchedMetadata]
           }, {
             'name': 'Write',
-            'task': connection.query//,
-            // 'params': [createQueries('insert', undefined, columns, tableName)[0], updatedRow]
+            'task': connection.query,
+            'params': ['insert', updatedRow, columns, matchedMetadata]
           }],
           'update cartodb db', true
         ]
@@ -44,8 +52,8 @@ var WriteFn = function (connection, options, columns) {
     removed.forEach(function (removedRow, i) {
       removeTasks.push({
         'name': 'Remove Removed Row ' + i,
-        'task': connection.query//,
-        // 'params': createQueries('remove', removedRow, keys.primaryKeys, tableName)
+        'task': connection.query // ,
+      // 'params': createQueries('remove', removedRow, keys.primaryKeys, tableName)
       });
     });
 
@@ -78,10 +86,9 @@ module.exports = function (sourceConfig, options) {
       'name': 'createConnection',
       'description': 'Connects to the OpenStreetMap API and verifies user credentials',
       'task': databases,
-      'params': [{
-        'type': 'openstreetmap',
-        'connection': sourceConfig.connection
-      }]
+      'params': [
+        connectionConfig.toObject()
+      ]
     }];
     tools.iterateTasks(tasks, 'osm').then(function (r) {
       var columns = columnsFromConfig(sourceConfig.columns, sourceConfig.fields);
