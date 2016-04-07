@@ -1,0 +1,12 @@
+[
+  {"key":"a","field1":"1","field2":"2","field3":"2","field4":"2","field5":"2","field6":2.001,"field7":"2","field8":"2"},
+  {"key":"b","field1":"1","field2":"2","field3":"2","field4":"2","field5":"2","field6":2.11,"field7":"s","field8":"2"},
+  {"key":"c","field1":"1","field2":"2","field3":"2","field4":"2","field5":"t","field6":2,"field7":"2","field8":"2"},
+  {"key":"d","field1":"1.00","field2":"2","field3":"2","field4":"2","field5":"2","field6":2,"field7":"2","field8":"2"},
+  {"key":"e","field1":"1","field2":"2.00","field3":"2","field4":"2","field5":"2","field6":3452425.23,"field7":"2","field8":"2"},
+  {"key":"f","field1":"1","field2":"2","field3":"2","field4":"2","field5":"2","field6":2,"field7":"2","field8":"2"},
+  {"key":"g","field1":"1","field2":"2","field3":"2","field4":"2","field5":"2","field6":-2,"field7":"s","field8":"2"},
+  {"key":"h","field1":"1","field2":"2","field3":"2","field4":"2","field5":"t","field6":6,"field7":"2","field8":"2"},
+  {"key":"i","field1":"1.00","field2":"2","field3":"2","field4":"2","field5":"2","field6":2.02,"field7":"2","field8":"2"},
+  {"key":"j","field1":"1","field2":"2.00","field3":"2","field4":"2","field5":"2","field6":2.00,"field7":"2","field8":"2"}
+]

@@ -1,0 +1,11 @@
+{
+  "rootDirectory": "{{env.PWD}}/sql",
+  "dataDirectory": "{{env.PWD}}/data",
+  "delimiter": ";",
+  "fileDesignator": "file:///",
+  "urlDesignator": "https?://",
+  "arcgisDesignator": "arcgis:",
+  "fileOptions": {
+    "encoding": "utf8"
+  }
+}
