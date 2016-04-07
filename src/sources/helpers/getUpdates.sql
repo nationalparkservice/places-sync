@@ -1,7 +1,9 @@
 SELECT
   COALESCE("masterKey", "userKey") AS "key",
+  COALESCE("masterForeignKey", "userForeignKey") AS "foreignKey",
   COALESCE("masterLastUpdated", "userLastUpdated") AS "lastUpdated",
   COALESCE("masterHash", "userHash") AS "hash",
+  COALESCE("masterData", "userData") AS "data",
   CASE
     WHEN
       "masterKey" IS NOT NULL
@@ -45,28 +47,36 @@ SELECT
     (
     SELECT
       "user"."key" AS "userKey",
+      "user"."foreignKey" AS "userForeignKey",
       "user"."hash" AS "userHash",
+      "user"."data" AS "userData",
       "user"."lastUpdated" AS "userLastUpdated",
       "master"."key" AS "masterKey",
+      "master"."foreignKey" AS "masterForeignKey",
       "master"."hash" AS "masterHash",
+      "master"."data" AS "masterData",
       "master"."lastUpdated" AS "masterLastUpdated"
     FROM
-    (SELECT "key", "hash", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'user') AS "user"
+    (SELECT "key", "foreignKey", "hash", "data", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'user') AS "user"
     LEFT JOIN
-    (SELECT "key", "hash", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'master') AS "master"
+    (SELECT "key", "foreignKey", "hash", "data", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'master') AS "master"
     ON "user"."key" = "master"."key"
     UNION ALL
     SELECT
       "user"."key" AS "userKey",
+      "user"."foreignKey" AS "userForeignKey",
       "user"."hash" AS "userHash",
+      "user"."data" AS "userData",
       "user"."lastUpdated" AS "userLastUpdated",
       "master"."key" AS "masterKey",
+      "master"."foreignKey" AS "masterForeignKey",
       "master"."hash" AS "masterHash",
+      "master"."data" AS "masterData",
       "master"."lastUpdated" AS "masterLastUpdated"
     FROM
-    (SELECT "key", "hash", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'master') AS "master"
+    (SELECT "key", "foreignKey", "hash", "data", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'master') AS "master"
     LEFT JOIN
-    (SELECT "key", "hash", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'user') AS "user"
+    (SELECT "key", "foreignKey", "hash", "data", "lastUpdated" FROM "{{tableName}}" WHERE "source" = 'user') AS "user"
     ON "user"."key" = "master"."key"
     WHERE "user"."key" IS NULL
   );
