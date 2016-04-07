@@ -16,10 +16,10 @@
     "minimist": "1.2.0",
     "oauth": "0.9.14",
     "proj4js-defs": "0.0.1",
-    "reproject": "1.1.0",
-    "superagent": "1.7.2",
+    "reproject": "1.1.1",
+    "superagent": "1.8.3",
     "superagent-oauth": "0.2.3",
-    "tape": "4.4.0",
+    "tape": "4.5.1",
     "terraformer-arcgis-parser": "1.0.4",
     "xmljs_trans_js": "git+https://github.com/nationalparkservice/xmljs_trans_js.git#master"
   },
