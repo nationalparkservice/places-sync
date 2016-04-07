@@ -36,6 +36,10 @@ var fieldMap = {
     'name': 'hash',
     'process': notFalsey
   },
+  'data': {
+    'name': 'data',
+    'process': notFalsey
+  },
   'forced': {
     'name': 'forced',
     'process': notFalsey
