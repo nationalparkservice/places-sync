@@ -12,6 +12,13 @@ module.exports = function (database, columns, writeToSource, querySource, master
   // Load the basic query helpers
   var keys = columnsToKeys(columns);
   var modifySource = new ModifySource(database, columns);
+  var queryMetadata = function (queryName, values) {
+    var metadataColumns = ['key', 'foreignKey', 'lastUpdated', 'hash', 'data', 'action'];
+    var createQueries = new CreateQueries(metadataColumns, ['key'], ['lastUpdated']);
+    var query = createQueries(queryName, queryName === 'insert' ? undefined : values, queryName === 'select' ? metadataColumns : undefined, 'metadata');
+    return database.query(query[0], queryName === 'insert' ? values : query[1]);
+  };
+
   var queryDatabase = function () {
     var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField);
     return database.query.apply(this, createQueries.apply(this, arguments));
@@ -156,9 +163,10 @@ module.exports = function (database, columns, writeToSource, querySource, master
       // Writes the changes to the original file
       return Promise.all([
         queryDatabase('getUpdated', undefined, columns),
-        queryDatabase('getRemoved', undefined, columns)
+        queryDatabase('getRemoved', undefined, columns),
+        queryMetadata('select')
       ]).then(function (results) {
-        return writeToSource(results[0], results[1]).then(function (writeResults) {
+        return writeToSource(results[0], results[1], results[2]).then(function (writeResults) {
           // Write results may add a foreign key in for us to use when writing to master
 
           // The write results should return what was written
@@ -205,6 +213,12 @@ module.exports = function (database, columns, writeToSource, querySource, master
             }
           });
       },
+      'metadata': function (row) {
+        // Updates the metadata table in memory
+        return queryMetadata('remove', row).then(function () {
+          return queryMetadata('insert', row);
+        });
+      },
       'update': function (row) {
         // Basically an upsert
         return modifySource.update(row);
@@ -227,6 +241,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
         //    'missing' - values that existed in the user that are not in the master table
         //    'created elsewhere' - missing values that were created since the last sync
         //    'unknown' - any other outcome. These will be monitored and explained
+        //    'metadata' - optional, contains the information from the master database (foreign keys, last update time, hashes)
         // Then applies it to the updated and removed tables
         // Probably just options up the object and loops the updates and removes
         var tasks = [];
@@ -245,8 +260,10 @@ module.exports = function (database, columns, writeToSource, querySource, master
             }
           });
         });
+        tools.arrayify(updates.metadata).forEach(function (row) {
+          tasks.push(actions.modify.metadata(row));
+        });
         // TODO: Should this return the updates it applied?
-        // TODO: Support the other actions for two-way sync
         return Promise.all(tasks);
       }
     }
