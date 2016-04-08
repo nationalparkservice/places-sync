@@ -1,12 +1,20 @@
 var tools = require('../../tools');
 
-module.exports = function (columns, primaryKey, lastUpdatedField, removedField) {
+module.exports = function (columns, primaryKey, lastUpdatedField, removedField, options) {
   var queryKey = tools.arrayify(primaryKey || tools.simplifyArray(columns));
 
-  var arrayToColumns = function (columns, tableName, quotes) {
+  var arrayToColumns = function (columns, tableName, quotes, toFrom) {
     quotes = quotes || ['"', '"'];
     quotes[0] = tableName ? quotes[0] + tableName + quotes[1] + '.' + quotes[0] : quotes[0];
-    return tools.surroundValues(tools.simplifyArray(columns), quotes[0], quotes[1]).join(',');
+    var newColumns = tools.simplifyArray(columns).map(function (column) {
+      var newColumn = tools.surroundValues(column, quotes[0], quotes[1]);
+      if (options && options.transforms && options.transforms[column] && options.transforms[column][toFrom]) {
+        return tools.surroundValues.apply(this, [newColumn].concat(options.transforms[column][toFrom])) + ' AS "' + column + '"';
+      } else {
+        return newColumn;
+      }
+    });
+    return newColumns.join(', ');
   };
 
   var arraysToObj = function (keys, values) {
@@ -23,12 +31,12 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField) 
     return returnObject;
   };
 
-  var createWhereObj = function (keys, values, defaultWhere) {
+  var createWhereObj = function (keys, values, options) {
     var valuesObj = arraysToObj(keys, values);
     var whereObj = {};
 
     // If nothing is specified for a value, the default is (null or not null)
-    defaultWhere = defaultWhere || {
+    var defaultWhere = (options && options.defaultWhere) || {
       '$or': [{
         '$eq': null
       }, {
@@ -47,7 +55,7 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField) 
       };
     }
 
-    return tools.createWhereClause(whereObj);
+    return tools.createWhereClause(whereObj, tools.simplifyArray(columns), options);
   };
 
   var queries = {
@@ -77,7 +85,8 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField) 
       return selectAllQuery;
     },
     'selectLastUpdate': function (tableName) {
-      return 'SELECT COALESCE(MAX("' + tableName + '"."' + lastUpdatedField + '"), -1) AS "lastUpdate" FROM "' + tableName + '" ';
+      var lastUpdateColumn = arrayToColumns([lastUpdatedField], tableName, undefined, 'from');
+      return 'SELECT COALESCE(MAX(' + lastUpdateColumn + '), -1) AS "lastUpdate" FROM "' + tableName + '" ';
     },
     'cleanUpdate': function () {
       return queries.remove('updated');
@@ -105,11 +114,11 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField) 
     },
     'insert': function (tableName, queryColumns) {
       queryColumns = queryColumns || columns;
-      return 'INSERT INTO "' + tableName + '" (' + arrayToColumns(queryColumns) + ') VALUES (' + arrayToColumns(queryColumns, undefined, ['{{', '}}']) + ')';
+      return 'INSERT INTO "' + tableName + '" (' + arrayToColumns(queryColumns) + ') VALUES (' + arrayToColumns(queryColumns, undefined, ['{{', '}}'], 'to') + ')';
     },
     'select': function (tableName, queryColumns) {
       queryColumns = queryColumns || columns;
-      return 'SELECT ' + arrayToColumns(queryColumns, tableName) + ' FROM "' + tableName + '"';
+      return 'SELECT ' + arrayToColumns(queryColumns, tableName, undefined, 'from') + ' FROM "' + tableName + '"';
     },
     'remove': function (tableName) {
       return 'DELETE FROM "' + tableName + '"';
@@ -122,9 +131,9 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField) 
         // Special case for the last updated which requires a great than
         where = tools.createWhereClause(tools.setProperty(lastUpdatedField, {
           '$gt': values[lastUpdatedField]
-        }));
+        }), tools.simplifyArray(columns), options);
       } else {
-        where = createWhereObj(tools.simplifyArray(keys || queryKey), values);
+        where = createWhereObj(tools.simplifyArray(keys || queryKey), values, options);
       }
     }
     var query = queries[queryName](tableName, tools.simplifyArray(keys || queryKey)) + (where ? ' WHERE ' + where[0] : ';');
