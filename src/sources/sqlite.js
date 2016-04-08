@@ -23,6 +23,9 @@ var QuerySource = function (connection, options, tableName, columns) {
     returnColumns = returnColumns || columns;
     var keys = columnsToKeys(returnColumns);
     var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField);
+    console.log('-v-sqlite query-v-');
+    console.log(createQueries(type, whereObj, returnColumns, tableName));
+    console.log('-^-sqlite query-^-');
     return connection.query.apply(this, createQueries(type, whereObj, returnColumns, tableName));
   };
 };
