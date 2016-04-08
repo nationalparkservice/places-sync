@@ -5,7 +5,8 @@ var Promise = require('bluebird');
 var Immutable = require('immutable');
 var tools = {
   'iterateTasks': require('../tools/iterateTasks'),
-  'simplifyArray': require('../tools/simplifyArray')
+  'simplifyArray': require('../tools/simplifyArray'),
+  'setProperty': require('../tools/setProperty')
 };
 var databases = require('../databases');
 var CreateQueries = require('./helpers/createQueries');
@@ -17,7 +18,7 @@ var QuerySource = function (connection, options, tableName, columns) {
   return function (type, whereObj, returnColumns) {
     returnColumns = returnColumns || columns;
     var keys = columnsToKeys(returnColumns);
-    var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField);
+    var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
 
     // Casts!
     var preQuery = createQueries(type, whereObj, returnColumns, tableName);
@@ -101,7 +102,7 @@ var readPostgresql = function (connection, options, tableName, tableSchema) {
           'type': rawColumn.data_type,
           'sqliteType': getSqliteType(rawColumn.data_type),
           'primaryKey': pkeys.indexOf(rawColumn.name) > -1, // http://stackoverflow.com/questions/1214576/how-do-i-get-the-primary-keys-of-a-table-from-postgres-via-plpgsql
-          'defaultValue': typeof rawColumn.column_default=== 'object' ? undefined : rawColumn.column_default,
+          'defaultValue': typeof rawColumn.column_default === 'object' ? undefined : rawColumn.column_default,
           'notNull': rawColumn.is_nullable === 'NO',
           'columnId': rawColumn.ordinal_position
         };
@@ -121,6 +122,9 @@ module.exports = function (sourceConfig, options) {
     if (typeof (connectionConfig.get('table')) !== 'string') {
       throw new Error('A table name must be set in the connection for a PostgreSQL connection');
     }
+    // Translate the postgres timestamps to sqlite timestamps
+    options = options || {};
+    options.transforms = options.transforms || {};
 
     // Define the taskList
     var tasks = [{
@@ -139,6 +143,12 @@ module.exports = function (sourceConfig, options) {
     }];
     tools.iterateTasks(tasks, 'postgresql').then(function (r) {
       var columns = columnsFromConfig(r.convertFromTable.columns, sourceConfig.fields);
+      var keys = columnsToKeys(columns);
+      options.transforms[keys.lastUpdatedField] = options.transforms[keys.lastUpdatedField] || {
+        'from': ['(EXTRACT(EPOCH FROM ', ') * 1000)'],
+        'to': ["TIMESTAMP 'epoch' + ", " * INTERVAL '1 second'"]
+      };
+
       fulfill({
         'data': r[1].data,
         'columns': columns,
