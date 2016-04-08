@@ -1,8 +1,9 @@
 var getJsType = require('./getJsType');
 var md5 = require('./md5');
 var normalizeToType = require('./normalizeToType');
+var surroundValues = require('./surroundValues');
 
-module.exports = function (whereObj, availableColumns) {
+module.exports = function (whereObj, availableColumns, options) {
   var whereReplacers = {};
   var operators = {
     'eq': '=',
@@ -33,7 +34,12 @@ module.exports = function (whereObj, availableColumns) {
       }
     }
     if (!availableColumns || availableColumns.indexOf(field) > -1) {
-      return '"' + field + '" ' + operator + ' {{' + valueMd5 + '}}';
+      var fieldVal = surroundValues(field, '"');
+      if (options && options.transforms && options.transforms[field] && options.transforms[field].from) {
+        // Allow transformations (like casts or upper/lower kind of things)
+        fieldVal = surroundValues.apply(this, [fieldVal].concat(options.transforms[field].from));
+      }
+      return fieldVal + surroundValues(operator, ' ') + surroundValues(valueMd5, '{{', '}}');
     } else {
       return undefined;
     }
