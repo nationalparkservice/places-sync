@@ -105,6 +105,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
             'process': sourceConfig.connection.processName || 'sync',
             'source': otherSourceName
           };
+          console.log('%% 1', masterCacheQuery);
           var orderedTasks = [{
             'name': 'lastSyncTime',
             'description': 'Gets the last time this source was updated from the master cache',
@@ -142,6 +143,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
               return task.task.apply(this, task.params);
             })
           ).then(function (promiseResults) {
+            console.log('%% 2', promiseResults);
             var results = promiseResults[0];
             results.allKeys = promiseResults[1];
             results.masterCacheKeys = promiseResults[2];
