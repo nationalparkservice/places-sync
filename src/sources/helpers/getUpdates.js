@@ -9,9 +9,6 @@ var sql = require('fs').readFileSync(require('path').resolve(__dirname, './getUp
 
 var recordsToCompare = function (records, sourceName, keys, ignoreKeys, emptyHash) {
   var returnValue = [];
-  console.log('records');
-  console.log(records);
-  console.log('records');
   records.forEach(function (record) {
     var newKey = keyCombine(keys.primaryKeys, record);
     var newForeignKey = keyCombine(keys.foreignKeys, record);
@@ -70,9 +67,6 @@ module.exports = function (lastSyncTime, updatedSinceTime, allKeys, allMasterKey
       'tableName': 'cached',
       'lastUpdated': parseFloat(lastSyncTime, 10)
     });
-    console.log('-v- jsonSource Query -v-');
-    console.log(query);
-    console.log('-^- jsonSource Query -^-');
     return source.get._database().query(query).then(function (changedData) {
       return source.close().then(function () {
         return new Promise(function (fulfill) {
