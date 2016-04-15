@@ -8,9 +8,9 @@ var databases = tools.requireDirectory(__dirname, [__filename]);
 
 var DatabaseObject = function (database) {
   var returnObject = {
-    'query': function (query, params) {
+    'query': function () {
       // console.log('q', query, params);
-      return database.query(query, params);
+      return database.query.apply(this, arguments);
     },
     'queryList': function (query, paramList) {
       return Promise.all(paramList.map(function (params) {
