@@ -167,9 +167,6 @@ module.exports = function (database, columns, writeToSource, querySource, master
         queryDatabase('getRemoved', undefined, columns),
         queryMetadata('select')
       ]).then(function (results) {
-        console.log('-=-=- save res -=-=-');
-        console.log(results);
-        console.log('-=-=- save res -=-=-');
         return writeToSource(results[0], results[1], results[2]).then(function (writeResults) {
           // Write results may add a foreign key in for us to use when writing to master
 
@@ -225,7 +222,6 @@ module.exports = function (database, columns, writeToSource, querySource, master
       },
       'update': function (row) {
         // Basically an upsert
-        console.log('ok, running that insert on ', row);
         return modifySource.update(row);
       },
       'remove': function (row) {
@@ -260,7 +256,6 @@ module.exports = function (database, columns, writeToSource, querySource, master
         typesToInsert.forEach(function (type) {
           tools.arrayify(updates[type]).forEach(function (row) {
             // Make sure we have all the information (don't just push keys)
-          console.log('going to insert ', row);
             if (validateRow(row, columns)) {
               tasks.push(actions.modify.update(row));
             }
@@ -269,9 +264,6 @@ module.exports = function (database, columns, writeToSource, querySource, master
         tools.arrayify(updates.metadata).forEach(function (row) {
           tasks.push(actions.modify.metadata(row));
         });
-        console.log ('__-v apply Updates v-__');
-        console.log (updates);
-        console.log ('__-^ apply Updates ^-__');
         // TODO: Should this return the updates it applied?
         return Promise.all(tasks);
       }
