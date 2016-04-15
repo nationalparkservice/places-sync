@@ -43,6 +43,18 @@ var fieldMap = {
   'forced': {
     'name': 'forced',
     'process': notFalsey
+  },
+  'mapped': {
+    'name': 'mapped',
+    'process': function(value, columnName) {
+      return typeof value === 'object' && value.hasOwnProperty(columnName) && value[columnName] !== undefined ? value[columnName] : false;
+    }
+  },
+  'mappedFrom': {
+    'name': 'mappedFrom',
+    'process': function(value, columnName) {
+      return typeof value === 'object' && value.hasOwnProperty(columnName) && value[columnName] !== undefined ? value[columnName] : false;
+    }
   }
 };
 
