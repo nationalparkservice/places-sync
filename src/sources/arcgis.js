@@ -143,7 +143,6 @@ var runQuery = function (sourceUrl, queryObj, primaryKeys) {
             });
           }
 
-          console.log('outputJson', outputJson);
           fulfill(outputJson);
         });
       });
