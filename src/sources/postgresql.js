@@ -22,9 +22,6 @@ var QuerySource = function (connection, options, tableName, columns) {
 
     // Casts!
     var preQuery = createQueries(type, whereObj, returnColumns, tableName);
-    console.log('@$%^#$^%#%^');
-    console.log(preQuery);
-    console.log('@$%^#$^%#%^');
 
     return connection.query.apply(this, preQuery);
   };
@@ -32,7 +29,7 @@ var QuerySource = function (connection, options, tableName, columns) {
 
 var WriteFn = function (connection, options, tableName, columns) {
   var keys = columnsToKeys(columns);
-  var createQueries = new CreateQueries(columns, keys.primaryKeys);
+  var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
 
   return function (updated, removed) {
     var tasks = [];
@@ -145,8 +142,8 @@ module.exports = function (sourceConfig, options) {
       var columns = columnsFromConfig(r.convertFromTable.columns, sourceConfig.fields);
       var keys = columnsToKeys(columns);
       options.transforms[keys.lastUpdatedField] = options.transforms[keys.lastUpdatedField] || {
-        'from': ['(EXTRACT(EPOCH FROM ', ') * 1000)'],
-        'to': ["TIMESTAMP 'epoch' + ", " * INTERVAL '1 second'"]
+        'from': ['(EXTRACT(EPOCH FROM ', ')) * 1000'],
+        'to': ["(TIMESTAMP 'epoch' + ", " * INTERVAL '1 millisecond') AT TIME ZONE 'GMT'"]
       };
 
       fulfill({
