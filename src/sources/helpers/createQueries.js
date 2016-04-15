@@ -9,7 +9,7 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
     var newColumns = tools.simplifyArray(columns).map(function (column) {
       var newColumn = tools.surroundValues(column, quotes[0], quotes[1]);
       if (options && options.transforms && options.transforms[column] && options.transforms[column][toFrom]) {
-        return tools.surroundValues.apply(this, [newColumn].concat(options.transforms[column][toFrom])) + ' AS "' + column + '"';
+        return tools.surroundValues.apply(this, [newColumn].concat(options.transforms[column][toFrom])) + (toFrom === 'from' ? (' AS "' + column + '"') : '');
       } else {
         return newColumn;
       }
@@ -114,7 +114,8 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
     },
     'insert': function (tableName, queryColumns) {
       queryColumns = queryColumns || columns;
-      return 'INSERT INTO "' + tableName + '" (' + arrayToColumns(queryColumns) + ') VALUES (' + arrayToColumns(queryColumns, undefined, ['{{', '}}'], 'to') + ')';
+      var returnValue = 'INSERT INTO "' + tableName + '" (' + arrayToColumns(queryColumns) + ') VALUES (' + arrayToColumns(queryColumns, undefined, ['{{', '}}'], 'to') + ')';
+      return returnValue;
     },
     'select': function (tableName, queryColumns) {
       queryColumns = queryColumns || columns;
