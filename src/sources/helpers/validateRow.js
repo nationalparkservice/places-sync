@@ -13,6 +13,7 @@ module.exports = function (row, columns) {
   var notNullFields = ['primaryKeys', 'notNullFields', 'lastUpdatedField'];
   verified = notNullFields.map(function (fields) {
     return arrayify(keys[fields]).map(function (field) {
+      console.log('validating row', field, row[field] !== undefined);
       return row[field] !== undefined;
     }).reduce(allTrue, true);
   }).reduce(allTrue, true);

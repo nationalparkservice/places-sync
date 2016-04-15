@@ -1,12 +1,12 @@
-var CreateQueries = require('../helpers/createQueries');
+var CreateQueries = require('./createQueries');
 var ModifySource = require('./modifySource');
 var Promise = require('bluebird');
-var columnsToKeys = require('../helpers/columnsToKeys');
-var extractPrimaryKeys = require('../helpers/extractPrimaryKeys');
+var columnsToKeys = require('./columnsToKeys');
+var extractPrimaryKeys = require('./extractPrimaryKeys');
 var getUpdates; // Defined in the function
-var rowsToMaster = require('../helpers/rowsToMaster');
+var rowsToMaster = require('./rowsToMaster');
 var tools = require('../../tools');
-var validateRow = require('../helpers/validateRow');
+var validateRow = require('./validateRow');
 
 module.exports = function (database, columns, writeToSource, querySource, masterCache, sourceConfig) {
   // Load the basic query helpers
@@ -105,7 +105,6 @@ module.exports = function (database, columns, writeToSource, querySource, master
             'process': sourceConfig.connection.processName || 'sync',
             'source': otherSourceName
           };
-          console.log('%% 1', masterCacheQuery);
           var orderedTasks = [{
             'name': 'lastSyncTime',
             'description': 'Gets the last time this source was updated from the master cache',
@@ -136,14 +135,13 @@ module.exports = function (database, columns, writeToSource, querySource, master
             'name': 'masterCacheKeys',
             'description': 'Get ALL keys from the master cache, so we can tell what used to exist that doesnt anymore',
             'task': masterCache ? masterCache.get.allKeys : tools.dummyPromise,
-            'params': [masterCache ? masterCacheQuery : []]
+            'params': [masterCache ? masterCacheQuery : {}]
           }];
           Promise.all(
             unorderedTasks.map(function (task) {
               return task.task.apply(this, task.params);
             })
           ).then(function (promiseResults) {
-            console.log('%% 2', promiseResults);
             var results = promiseResults[0];
             results.allKeys = promiseResults[1];
             results.masterCacheKeys = promiseResults[2];
@@ -159,7 +157,8 @@ module.exports = function (database, columns, writeToSource, querySource, master
         } else {
           throw new Error('Database is not supported with this connection');
         }
-      }
+      },
+      'name': JSON.parse(JSON.stringify(sourceConfig.name))
     },
     'save': function () {
       // Writes the changes to the original file
@@ -168,6 +167,9 @@ module.exports = function (database, columns, writeToSource, querySource, master
         queryDatabase('getRemoved', undefined, columns),
         queryMetadata('select')
       ]).then(function (results) {
+        console.log('-=-=- save res -=-=-');
+        console.log(results);
+        console.log('-=-=- save res -=-=-');
         return writeToSource(results[0], results[1], results[2]).then(function (writeResults) {
           // Write results may add a foreign key in for us to use when writing to master
 
@@ -223,6 +225,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
       },
       'update': function (row) {
         // Basically an upsert
+        console.log('ok, running that insert on ', row);
         return modifySource.update(row);
       },
       'remove': function (row) {
@@ -257,6 +260,7 @@ module.exports = function (database, columns, writeToSource, querySource, master
         typesToInsert.forEach(function (type) {
           tools.arrayify(updates[type]).forEach(function (row) {
             // Make sure we have all the information (don't just push keys)
+          console.log('going to insert ', row);
             if (validateRow(row, columns)) {
               tasks.push(actions.modify.update(row));
             }
@@ -265,6 +269,9 @@ module.exports = function (database, columns, writeToSource, querySource, master
         tools.arrayify(updates.metadata).forEach(function (row) {
           tasks.push(actions.modify.metadata(row));
         });
+        console.log ('__-v apply Updates v-__');
+        console.log (updates);
+        console.log ('__-^ apply Updates ^-__');
         // TODO: Should this return the updates it applied?
         return Promise.all(tasks);
       }
