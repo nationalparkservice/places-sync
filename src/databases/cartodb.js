@@ -35,7 +35,7 @@ var parameterize = function (param, type) {
   return returnValue;
 };
 var parameterizeQuery = function (query, params, columns) {
-  params = JSON.parse(JSON.stringify(params));
+  params = JSON.parse(JSON.stringify(params || {}));
   for (var column in params) {
     var matchedColumn = columns && columns.filter(function (c) {
       return c.name === column;
