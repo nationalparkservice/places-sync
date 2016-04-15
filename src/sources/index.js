@@ -5,7 +5,7 @@
 var Promise = require('bluebird');
 var jsonToSqlite = require('./helpers/jsonToSqlite');
 var tools = require('../tools');
-var CreateActions = require('./actions/createActions');
+var CreateActions = require('./helpers/createActions');
 
 module.exports = function (sourceConfig, masterCache) {
   var sourceType = sourceConfig.connection && sourceConfig.connection.type;
