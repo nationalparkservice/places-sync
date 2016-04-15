@@ -117,7 +117,14 @@ var taskList = [{
   'name': 'updatesFromPostgresql',
   'description': 'Gets an object containing the records that were updated and the records that were removed from sourceA since the last write to B in the masterCache',
   'task': '{{postgresConnection.get.updates}}',
-  'params': ['{{csvConnection.name}}'],
+  'params': ['{{csvConnection.get.name}}'],
+  'operator': 'jstype',
+  'expected': 'object'
+}, {
+  'name': 'UpdatesFromCSV',
+  'description': 'Gets an object containing the records that were updated and the records that were removed from sourceB since the last write to A in the masterCache',
+  'task': '{{csvConnection.get.updates}}',
+  'params': [postgresConfig.name],
   'operator': 'jstype',
   'expected': 'object'
 }, {
@@ -128,33 +135,6 @@ var taskList = [{
   'operator': 'jstype',
   'expected': 'array'
 }, {
-  'name': 'saveCsv',
-  'description': 'Write data out to B and write it to the masterCache',
-  'task': '{{csvConnection.save}}',
-  'params': [],
-  'operator': 'structureEqual',
-  'expected': {
-    'updated': [],
-    'removed': []
-  }
-}, {
-  'name': 'savePostgresql',
-  'description': 'Write data out to B and write it to the masterCache',
-  'task': '{{postgresConnection.save}}',
-  'params': [],
-  'operator': 'structureEqual',
-  'expected': {
-    'updated': [],
-    'removed': []
-  }
-},{
-  'name': 'UpdatesFromCSV',
-  'description': 'Gets an object containing the records that were updated and the records that were removed from sourceB since the last write to A in the masterCache',
-  'task': '{{csvConnection.get.updates}}',
-  'params': [postgresConfig.name],
-  'operator': 'jstype',
-  'expected': 'object'
-}/*, {
   'name': 'applyUpdatesToPostgres',
   'description': 'Adds the updates and removes to the postgres object',
   'task': '{{postgresConnection.modify.applyUpdates}}',
@@ -162,7 +142,7 @@ var taskList = [{
   'operator': 'jstype',
   'expected': 'array'
 }, {
-  'name': 'saveA',
+  'name': 'savePostgres',
   'description': 'Write data out to B and write it to the masterCache',
   'task': '{{postgresConnection.save}}',
   'params': [],
@@ -172,7 +152,7 @@ var taskList = [{
     'removed': []
   }
 }, {
-  'name': 'closeA',
+  'name': 'closePostgres',
   'description': 'Closes the Source and frees up memory',
   'task': '{{postgresConnection.close}}',
   'params': [],
@@ -184,7 +164,17 @@ var taskList = [{
     open: false
   }
 }, {
-  'name': 'closeB',
+  'name': 'saveCsv',
+  'description': 'Write data out to B and write it to the masterCache',
+  'task': '{{csvConnection.save}}',
+  'params': [],
+  'operator': 'structureEqual',
+  'expected': {
+    'updated': [],
+    'removed': []
+  }
+}, {
+  'name': 'closeCsv',
   'description': 'Closes the Source and frees up memory',
   'task': '{{csvConnection.close}}',
   'params': [],
@@ -195,7 +185,7 @@ var taskList = [{
     mode: 65542,
     open: false
   }
-}, {
+}/*, {
   'name': 'readFileA',
   'description': 'Read the data to compare',
   'task': fs.readFileAsync,
@@ -393,7 +383,8 @@ var taskList = [{
   'params': [csvBFileName, 'utf8'],
   'operator': 'deepEqual',
   'expected': '{{readFileA_3}}'
-}*/];
+}*/
+];
 
 tools.iterateTapeTasks(taskList.slice(0, taskList.length - 0), true, true, true).then(function (results) {
   console.log('sync done');
