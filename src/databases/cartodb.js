@@ -52,18 +52,7 @@ module.exports = function (connectionConfig) {
         // var cleanedSql = fandlebars(query, params);
         var cleanedSql = parameterizeQuery(query, params, columns);
         var requestPath = 'https://' + connectionConfig.connection.account + '.cartodb.com/api/v2/sql';
-        console.log('|-cleanedSQL---------------------');
-        console.log(cleanedSql);
-        console.log('|-query--------------------------');
-        console.log(query);
-        console.log('|-params-------------------------');
-        console.log(params);
-        console.log('|-returnRaw------------------------');
-        console.log(returnRaw);
-        console.log('|-columns------------------------');
-        console.log(columns);
-        console.log('|--------------------------------');
-
+        
         if (cleanedSql.length > 5) {
           superagent.post(requestPath)
             .set('Content-Type', 'application/json')
