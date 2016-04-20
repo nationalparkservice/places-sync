@@ -201,10 +201,14 @@ module.exports = function (sourceConfig, options) {
       var columns = columnsFromConfig(r.convertFromTable.columns, sourceConfig.fields);
       var mappedColumns = mapColumns.to(columns);
       var keys = columnsToKeys(columns);
-      options.transforms[keys.lastUpdatedField] = options.transforms[keys.lastUpdatedField] || {
-        'from': ['(EXTRACT(EPOCH FROM ', ')) * 1000'],
-        'to': ["(TIMESTAMP 'epoch' + ", " * INTERVAL '1 millisecond') AT TIME ZONE 'GMT'"]
-      };
+      mappedColumns.forEach(function (column) {
+        if (column.type === 'timestamp with time zone') {
+          options.transforms[column.name] = options.transforms[column.name] || {
+            'from': ['(EXTRACT(EPOCH FROM ', ')) * 1000'],
+            'to': ["(TIMESTAMP 'epoch' + ", " * INTERVAL '1 millisecond') AT TIME ZONE 'GMT'"]
+          };
+        }
+      });
 
       fulfill({
         'data': r[1].data,
