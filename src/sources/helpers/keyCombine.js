@@ -32,6 +32,7 @@ var combine = function (columns, record) {
 combine.split = function (columns, record) {
   // Converts back into an object
   var returnObj = {};
+  record = record.toString();
   var splitRecord = record.split(',');
   columns.forEach(function (column, i) {
     returnObj[column] = parse(splitRecord[i]);
