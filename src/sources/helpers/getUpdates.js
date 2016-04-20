@@ -77,7 +77,7 @@ module.exports = function (lastSyncTime, updatedSinceTime, allKeys, allMasterKey
             if (!returnObject[record.action]) {
               returnObject[record.action] = [];
             }
-            var matchedRecord = updatedSinceTime[simplifyArray(jsonUpdatedRecords, 'key').indexOf(record.key)];
+            var matchedRecord = updatedSinceTime[simplifyArray(jsonUpdatedRecords, 'key').indexOf(record.key.toString())];
             returnObject[record.action].push(matchedRecord || keyCombine.split(sourceColumns.primaryKeys, record.key));
           });
           fulfill(returnObject);
