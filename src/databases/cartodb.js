@@ -26,6 +26,7 @@ var parameterize = function (param, type) {
   if (type !== 'text') {
     returnValue = "'" + param.replace(/\'/g, "''") + "'::" + type;
   } else {
+    param = unescape(encodeURIComponent(param));
     for (var i = 0; i < param.length; i++) {
       returnValue += param.charCodeAt(i).toString(16);
     }
