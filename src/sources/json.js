@@ -21,11 +21,15 @@ var WriteFn = function (data, columns, filePath, fileEncoding) {
       } else {
         updateJsonSource(data, updated, removed, columns)
           .then(function (newData) {
-            return writeJson(newData, columns, filePath, fileEncoding).then(function () {
-              fulfill({
+            return writeJson(newData, columns, filePath, fileEncoding).then(function (result) {
+              var returnValue = {
                 'updated': updated,
                 'removed': removed
-              });
+              };
+              if (filePath === ':memory:') {
+                returnValue.data = result;
+              }
+              fulfill(returnValue);
             }).catch(reject);
           })
           .catch(reject);
@@ -42,7 +46,7 @@ var writeJson = function (data, columns, filePath, fileEncoding) {
     });
     return newRow;
   });
-  return fs.writeFileAsync(filePath, stringify(data), fileEncoding);
+  return filePath === ':memory:' ? tools.dummyPromise(stringify(data)) : fs.writeFileAsync(filePath, stringify(data), fileEncoding);
 };
 
 var readJson = function (data, predefinedColumns) {
@@ -51,7 +55,7 @@ var readJson = function (data, predefinedColumns) {
     try {
       data = JSON.parse(data);
     } catch (e) {
-      if (data.length === 0) {
+      if (data.length < 2) {
         data = [];
       } else {
         throw new Error('Data is not valid JSON')
@@ -86,7 +90,6 @@ module.exports = function (sourceConfig) {
   return new Promise(function (fulfill, reject) {
     // Clean up the connectionConfig, and set the defaults
     var connectionConfig = new Immutable.Map(sourceConfig.connection);
-    var fieldsConfig = new Immutable.Map(sourceConfig.fields);
     if (typeof connectionConfig.get('filePath') !== 'string' && connectionConfig.get('data') === undefined) {
       throw new Error('data or filePath must be defined for a JSON file');
     }
