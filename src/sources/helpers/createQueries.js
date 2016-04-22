@@ -132,7 +132,8 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
         // Special case for the last updated which requires a great than
         where = tools.createWhereClause(tools.setProperty(lastUpdatedField, {
           '$gt': values[lastUpdatedField]
-        }), tools.simplifyArray(columns), options);
+        }, values || {}), tools.simplifyArray(columns), options);
+        console.log('where', where);
       } else {
         where = createWhereObj(tools.simplifyArray(keys || queryKey), values, options);
       }
