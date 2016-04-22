@@ -71,7 +71,7 @@ var arcgisWhereObj = function (whereObj, dateColumns) {
     if (dateColumns.indexOf(field) > -1 && typeof whereObj[field] !== 'object') {
       newWhereObj[field] = "'" + timestampToDate(whereObj[field]) + "'";
     } else {
-      newWhereObj[field] = "'" + whereObj[field] + '"';
+      newWhereObj[field] = "'" + whereObj[field] + "'";
     }
   }
   return newWhereObj;
@@ -90,7 +90,9 @@ var runQuery = function (sourceUrl, queryObj, primaryKeys) {
       var requests = [];
       var count = countResult.count;
       for (var i = 0; i < count; i += queryObj.resultRecordCount) {
-        queryObj.resultOffset = i;
+        if (queryObj.resultOffset !== undefined) {
+          queryObj.resultOffset = i;
+        }
         requests.push([sourceUrl + 'query?', queryObj]);
       }
       return tools.iterateTasks(requests.map(function (req) {
@@ -156,6 +158,16 @@ var runQuery = function (sourceUrl, queryObj, primaryKeys) {
 
 var QuerySource = function (connectionString, sourceInfo, columns) {
   return function (type, whereObj, returnColumns) {
+    var newWhereObj = connectionString.where || {};
+    for (var k in whereObj) {
+      newWhereObj[k] = whereObj[k];
+    }
+    // Add the columns we're querying, if they exist
+    for (k in newWhereObj) {
+      if (returnColumns.indexOf(k) < 0 && tools.simplifyArray(columns).indexOf(k) >= 0) {
+        returnColumns.push(k);
+      }
+    }
     returnColumns = returnColumns || columns;
     var columnsNoGeometry = returnColumns.filter(function (c) {
       return c.name !== 'geometry';
@@ -164,9 +176,9 @@ var QuerySource = function (connectionString, sourceInfo, columns) {
     var dateColumns = tools.simplifyArray(columns.filter(function (c) {
       return c.type === 'esriFieldTypeDate';
     }));
-    whereObj = arcgisWhereObj(whereObj, dateColumns);
+    newWhereObj = arcgisWhereObj(newWhereObj, dateColumns);
     var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField);
-    var preQuery = createQueries(type, whereObj, columnsNoGeometry, 'ESRI');
+    var preQuery = createQueries(type, newWhereObj, columnsNoGeometry, 'ESRI');
 
     // TODO: ArcGIS returns its dates with millisecond precision, but queries them with more precision
 
@@ -175,12 +187,20 @@ var QuerySource = function (connectionString, sourceInfo, columns) {
       'outFields': tools.simplifyArray(columnsNoGeometry).join(','),
       'returnGeometry': tools.simplifyArray(returnColumns).indexOf('geometry') > -1,
       'outSR': '4326',
-      'resultOffset': '0',
-      'resultRecordCount': sourceInfo.maxRecordCount,
       'f': 'json'
     };
 
+    if (sourceInfo.advancedQueryCapabilities && sourceInfo.advancedQueryCapabilities.supportsPagination === true) {
+      query.resultOffset = '0';
+      query.resultRecordCount = sourceInfo.maxRecordCount;
+    }
+
     query.where = fandlebars(query.where, preQuery[1]);
+    console.log('****************************a33443343');
+    console.log(sourceInfo.advancedQueryCapabilities);
+    console.log('*************************************b233443343');
+    console.log(query);
+    console.log('******************c133443343');
 
     return runQuery(connectionString.url, query, keys.primaryKeys);
   };
@@ -197,13 +217,16 @@ var copyValues = function (values, baseObj) {
 };
 var getAsync = function (url, query) {
   return new Promise(function (fulfill, reject) {
-    superagent.get(url).query(query).end(function (err, res) {
-      if (err) {
-        reject(err);
-      } else {
-        fulfill(res);
-      }
-    });
+    console.log(url, query);
+    superagent.get(url)
+      .query(query)
+      .end(function (err, res) {
+        if (err) {
+          reject(err);
+        } else {
+          fulfill(res);
+        }
+      });
   });
 };
 
@@ -250,7 +273,7 @@ module.exports = function (sourceConfig) {
           'sqliteType': getSqliteType(column.type),
           // 'primaryKey':' // These will need to be added in the config
           'defaultValue': column.defaultValue,
-          'notNull': column.nullable,
+          'notNull': column.nullable === false,
           'sqliteColumnId': i
         };
       });
@@ -266,7 +289,7 @@ module.exports = function (sourceConfig) {
         'sqliteColumnId': -1
       });
 
-      var sourceInfo = copyValues(['id', 'objectIdField', 'name', 'editFieldsInfo', 'editingInfo', 'maxRecordCount'], source);
+      var sourceInfo = copyValues(['id', 'objectIdField', 'name', 'editFieldsInfo', 'editingInfo', 'maxRecordCount', 'advancedQueryCapabilities'], source);
 
       // Get defaults from ArcGIS
       var sourceInfoFields = {
