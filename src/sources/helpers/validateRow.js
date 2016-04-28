@@ -13,6 +13,9 @@ module.exports = function (row, columns) {
   var notNullFields = ['primaryKeys', 'notNullFields', 'lastUpdatedField'];
   verified = notNullFields.map(function (fields) {
     return arrayify(keys[fields]).map(function (field) {
+      if (row[field] === undefined) {
+        console.log('failed on field', field);
+      }
       return row[field] !== undefined;
     }).reduce(allTrue, true);
   }).reduce(allTrue, true);
