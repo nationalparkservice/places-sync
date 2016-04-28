@@ -5,7 +5,9 @@ var Promise = require('bluebird');
 var Immutable = require('immutable');
 var tools = {
   'iterateTasks': require('../tools/iterateTasks'),
+  'dummyPromise': require('../tools/dummyPromise'),
   'simplifyArray': require('../tools/simplifyArray'),
+  'mergeObjects': require('../tools/mergeObjects'),
   'setProperty': require('../tools/setProperty')
 };
 var databases = require('../databases');
@@ -13,28 +15,48 @@ var CreateQueries = require('./helpers/createQueries');
 var columnsFromConfig = require('./helpers/columnsFromConfig');
 var getSqliteType = require('./helpers/getSqliteTypeFromPg');
 var columnsToKeys = require('./helpers/columnsToKeys');
+var mapFields = require('./helpers/mapFields');
+var postgresDateTransform = require('./helpers/postgresDateTransform');
+var addTransforms = require('./helpers/addTransforms');
 
-var QuerySource = function (connection, options, tableName, columns) {
+var QuerySource = function (connection, options, tableName, columns, fields, baseWhereClause) {
   return function (type, whereObj, returnColumns) {
-    returnColumns = returnColumns || columns;
+    var newWhereObj = mapFields.data.from([tools.mergeObjects(baseWhereClause || {}, whereObj)], fields.mapped)[0];
+    returnColumns = mapFields.columns.from(returnColumns || columns, fields.mapped);
+
     var keys = columnsToKeys(returnColumns);
-    var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
+
+    var newColumns = mapFields.columns.from(columns, fields.mapped);
+    var createQueries = new CreateQueries(newColumns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
 
     // Casts!
-    var preQuery = createQueries(type, whereObj, returnColumns, tableName);
+    var preQuery = createQueries(type, newWhereObj, returnColumns, tableName);
 
-    return connection.query.apply(this, preQuery);
+    return connection.query(preQuery[0], preQuery[1]).then(function (result) {
+      return mapFields.data.to(result, fields.mapped);
+    });
   };
 };
 
-var WriteFn = function (connection, options, tableName, columns) {
-  var keys = columnsToKeys(columns);
-  var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
+var WriteFn = function (connection, options, tableName, columns, fields) {
+  // Parse out the original columns from the  columns so we can translate to the source Schema
+  var newColumns = mapFields.columns.from(columns, fields.mapped);
+
+  // Determine the primary keys
+  var keys = columnsToKeys(newColumns);
+
+  // Add the transformations
+  newColumns = addTransforms(options, newColumns);
+
+  // Create the query object that we use to generate the queries
+  var createQueries = new CreateQueries(newColumns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
 
   return function (updated, removed) {
     var tasks = [];
     var removeTasks = [];
-    var keys = columnsToKeys(columns);
+
+    // Remove the updates that have really been removed
+    // TODO move this elsewhere
     if (keys.removedFieldValue !== undefined) {
       removed.forEach(function (row) {
         row[keys.removedField] = keys.removedFieldValue;
@@ -42,6 +64,11 @@ var WriteFn = function (connection, options, tableName, columns) {
       });
       removed = [];
     }
+
+    // We need to map the columns back over
+    updated = mapFields.data.from(updated, fields.mapped);
+    removed = mapFields.data.from(removed, fields.mapped);
+
     updated.forEach(function (updatedRow, i) {
       tasks.push({
         'name': 'Remove / Write Update Row ' + i + JSON.stringify(updatedRow),
@@ -54,7 +81,7 @@ var WriteFn = function (connection, options, tableName, columns) {
           }, {
             'name': 'Write',
             'task': connection.query,
-            'params': [createQueries('insert', undefined, columns, tableName)[0], updatedRow]
+            'params': [createQueries('insert', undefined, newColumns, tableName)[0], updatedRow]
           }],
           'update postgresql db', true
         ]
@@ -72,13 +99,18 @@ var WriteFn = function (connection, options, tableName, columns) {
       return task.task.apply(this, task.params);
     })).then(function () {
       return Promise.all(removeTasks.map(function (removeTask) {
-        return removeTask.task.apply(this, removeTask.params);
+        return removeTask.task.apply(this, removeTask.params).then(function () {
+          return tools.dummyPromise({
+            'updated': updated,
+            'removed': removed
+          });
+        });
       }));
     });
   };
 };
 
-var readPostgresql = function (connection, options, tableName, tableSchema) {
+var readPostgresql = function (connection, options, tableName, tableSchema, sourceFields) {
   tableSchema = tableSchema || 'public';
   var queryObj = {
     'tableSchema': tableSchema,
@@ -91,8 +123,6 @@ var readPostgresql = function (connection, options, tableName, tableSchema) {
     ]).then(function (result) {
       var rawColumns = result[1];
       var pkeys = tools.simplifyArray(result[0].key);
-      // TODO: allow an option to pull the data into the source, like in csvs
-      var data;
       var columns = rawColumns.map(function (rawColumn) {
         return {
           'name': rawColumn.column_name,
@@ -105,8 +135,8 @@ var readPostgresql = function (connection, options, tableName, tableSchema) {
         };
       });
       fulfill({
-        'data': data,
-        'columns': columns
+        'data': undefined, // mapFields.data.to(data, sourceFields.mapped),
+        'columns': mapFields.columns.to(columns, sourceFields.mapped)
       });
     }).catch(reject);
   });
@@ -119,9 +149,6 @@ module.exports = function (sourceConfig, options) {
     if (typeof (connectionConfig.get('table')) !== 'string') {
       throw new Error('A table name must be set in the connection for a PostgreSQL connection');
     }
-    // Translate the postgres timestamps to sqlite timestamps
-    options = options || {};
-    options.transforms = options.transforms || {};
 
     // Define the taskList
     var tasks = [{
@@ -136,25 +163,28 @@ module.exports = function (sourceConfig, options) {
       'name': 'convertFromTable',
       'description': 'Takes the source data and creates an update/remove postgresql table in memory for it',
       'task': readPostgresql,
-      'params': ['{{createDbConnection}}', options, connectionConfig.get('table'), connectionConfig.get('schema')]
+      'params': ['{{createDbConnection}}', options, connectionConfig.get('table'), connectionConfig.get('schema'), sourceConfig.fields]
     }];
-    tools.iterateTasks(tasks, 'postgresql').then(function (r) {
-      var columns = columnsFromConfig(r.convertFromTable.columns, sourceConfig.fields);
-      var keys = columnsToKeys(columns);
+    tools.iterateTasks(tasks, 'postgresql').then(function (result) {
+      var columns = columnsFromConfig(result.convertFromTable.columns, sourceConfig.fields);
+
+      // Add transforms for the timestamp with time zone field
+      sourceConfig.fields.transforms = sourceConfig.fields.transforms || {};
       columns.forEach(function (column) {
-        if (column.type === 'timestamp with time zone') {
-          options.transforms[column.name] = options.transforms[column.name] || {
-            'from': ['(EXTRACT(EPOCH FROM ', ')) * 1000'],
-            'to': ["(TIMESTAMP 'epoch' + ", " * INTERVAL '1 millisecond') AT TIME ZONE 'GMT'"]
-          };
+        if (column.type === 'timestamp with time zone' || column.type === 'timestamp without time zone') {
+          sourceConfig.fields.transforms[column.name] = sourceConfig.fields.transforms[column.name] || postgresDateTransform;
         }
       });
 
+      // Copy these transforms into the options (might need to rethink this)
+      options = options || {};
+      options.transforms = sourceConfig.fields.transforms;
+
       fulfill({
-        'data': r[1].data,
+        'data': result[1].data,
         'columns': columns,
-        'writeFn': new WriteFn(r[0], options, connectionConfig.get('table'), columns),
-        'querySource': new QuerySource(r[0], options, connectionConfig.get('table'), columns)
+        'writeFn': new WriteFn(result[0], options, connectionConfig.get('table'), columns, sourceConfig.fields),
+        'querySource': new QuerySource(result[0], options, connectionConfig.get('table'), columns, sourceConfig.fields, sourceConfig.where)
       });
     }).catch(reject);
   });
