@@ -20,9 +20,15 @@ var readParams = function (rawQuery, objParams) {
   if (objParams && Object.prototype.toString.call(objParams) === '[object Object]') {
     for (var paramIndex in objParams) {
       if (rawQuery.match(re(paramIndex))) {
-        returnValue.tempParams[paramIndex] = '$' + (returnValue.params.push(objParams[paramIndex]));
+        if (objParams[paramIndex] === null) {
+          // Postgresql doesn't support null as a parameter
+          returnValue.tempParams[paramIndex] = 'null';
+        } else {
+          returnValue.tempParams[paramIndex] = '$' + (returnValue.params.push(objParams[paramIndex]));
+        }
       }
     }
+
     returnValue.query = fandlebars(rawQuery, returnValue.tempParams);
     delete returnValue.tempParams;
   }
@@ -49,7 +55,7 @@ module.exports = function (sourceConfig) {
           if (err) {
             done();
             pg.end();
-            error = new Error(err.message + '\n\terrno: ' + err.errno + '\n\tcode: ' + err.code + '\n\tQuery: ' + newParams.newQuery + '\n\tParams: ' + newParams.newParams + '\n');
+            error = new Error(err.message + '\n\terrno: ' + err.errno + '\n\tcode: ' + err.code + '\n\tQuery: ' + query + '\n\tParams: ' + params.toString() + '\n');
             error.stack = err.stack + newStack.stack.replace(/^Error\n/, '\n');
             error.errno = err.errno;
             error.code = err.code;
@@ -59,7 +65,7 @@ module.exports = function (sourceConfig) {
               done();
               pg.end();
               if (e) {
-                error = new Error(e.message + '\n\terrno: ' + e.errno + '\n\tcode: ' + e.code + '\n\tQuery: ' + newParams.newQuery + '\n\tParams: ' + newParams.newParams + '\n');
+                error = new Error(e.message + '\n\terrno: ' + e.errno + '\n\tcode: ' + e.code + '\n\tQuery: ' + query + '\n\tParams: ' + JSON.stringify(params) + '\n');
                 error.stack = e.stack + newStack.stack.replace(/^Error\n/, '\n');
                 error.errno = e.errno;
                 error.code = e.code;
