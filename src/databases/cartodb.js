@@ -22,9 +22,9 @@ var parameterize = function (param, type) {
     param = param.toString();
   }
   var returnValue = "convert_from(decode('";
-  type = type || tools.getDataType(param);
+  // type = type || tools.getDataType(param);
   if (type !== 'text') {
-    returnValue = "'" + param.replace(/\'/g, "''") + "'::" + type;
+    returnValue = "'" + param.replace(/\'/g, "''") + (type ? "'::" + type : "'");
   } else {
     param = unescape(encodeURIComponent(param));
     for (var i = 0; i < param.length; i++) {
