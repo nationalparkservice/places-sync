@@ -156,28 +156,41 @@ var runQuery = function (sourceUrl, queryObj, primaryKeys) {
   });
 };
 
-var QuerySource = function (connectionString, sourceInfo, columns) {
+var QuerySource = function (connectionString, sourceInfo, baseWhereClause, columns, fields) {
   return function (type, whereObj, returnColumns) {
-    var newWhereObj = connectionString.where || {};
-    for (var k in whereObj) {
-      newWhereObj[k] = whereObj[k];
-    }
+    // If there's a where object already defined in the source, we need to merge them
+    var newWhereObj = mapFields.data.from([tools.mergeObjects(baseWhereClause || {}, whereObj)],fields.mapped)[0];
+
+    // Define the columns we're going to return to the user
+    returnColumns = mapFields.columns.from(returnColumns || columns, fields.mapped);
+
     // Add the columns we're querying, if they exist
     for (k in newWhereObj) {
       if (returnColumns.indexOf(k) < 0 && tools.simplifyArray(columns).indexOf(k) >= 0) {
         returnColumns.push(k);
       }
     }
-    returnColumns = returnColumns || columns;
+
+    // Filter out the columns that don't have a geometry datatype
     var columnsNoGeometry = returnColumns.filter(function (c) {
       return c.name !== 'geometry';
     });
+
+    // Determine the primaryKeys
     var keys = columnsToKeys(columns);
+
+    // Determine the columns that are dates
     var dateColumns = tools.simplifyArray(columns.filter(function (c) {
       return c.type === 'esriFieldTypeDate';
     }));
+
+    // Update the newWhereObj with some special stuff to deal with dates in AGOL 
     newWhereObj = arcgisWhereObj(newWhereObj, dateColumns);
+
+    // Create the query making object
     var createQueries = new CreateQueries(columns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField);
+
+    // Create a query (we will parse it later)
     var preQuery = createQueries(type, newWhereObj, columnsNoGeometry, 'ESRI');
 
     // TODO: ArcGIS returns its dates with millisecond precision, but queries them with more precision
@@ -190,19 +203,18 @@ var QuerySource = function (connectionString, sourceInfo, columns) {
       'f': 'json'
     };
 
+    // Make sure we can do pagination for arcgis queries, if so, then set the offsets
     if (sourceInfo.advancedQueryCapabilities && sourceInfo.advancedQueryCapabilities.supportsPagination === true) {
       query.resultOffset = '0';
       query.resultRecordCount = sourceInfo.maxRecordCount;
     }
 
+    // Replaces the values in the where clause with the fields since arcgis won't do a parameterized query
     query.where = fandlebars(query.where, preQuery[1]);
-    console.log('****************************a33443343');
-    console.log(sourceInfo.advancedQueryCapabilities);
-    console.log('*************************************b233443343');
-    console.log(query);
-    console.log('******************c133443343');
 
-    return runQuery(connectionString.url, query, keys.primaryKeys);
+    return runQuery(connectionString.url, query, keys.primaryKeys).then(function (result) {
+      return mapFields.data.to(result, fields.mapped);
+    });
   };
 };
 
@@ -309,7 +321,7 @@ module.exports = function (sourceConfig) {
         'columns': columns,
         'writeFn': undefined, // TODO allow writing
         'sourceInfo': sourceInfo,
-        'querySource': new QuerySource(connectionConfig.toJS(), sourceInfo, columns)
+        'querySource': new QuerySource(connectionConfig.toJS(), sourceInfo, sourceConfig.where, columns, sourceConfig.fields)
       });
     });
   });
