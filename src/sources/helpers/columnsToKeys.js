@@ -27,21 +27,12 @@ var mapFields = function (fields, mappings) {
 };
 
 var valueField = function (columns, field) {
-  var possibleColumns = columns.filter(function (c) {
-    return c.mapped !== false;
-  }).map(function (c) {
-    return setProperty(c.name, c[field]);
+  columns.reduce(function (a, b) {
+    for (var k in b) {
+      a[k] = b[k];
+    }
+    return a;
   });
-  if (possibleColumns.length > 0) {
-    return possibleColumns.reduce(function (a, b) {
-      for (var k in b) {
-        a[k] = b[k];
-      }
-      return a;
-    });
-  } else {
-    return undefined;
-  }
 };
 module.exports = function (columns, mapKeyFields) {
   var returnValue = {
@@ -71,10 +62,8 @@ module.exports = function (columns, mapKeyFields) {
       return valueExists(c.data);
     }))[0],
     'removedValue': ((columns.filter(function (c) {
-      return valueExists(c.removed);
-    })[0]) || {}).removedValue || 'true',
-    'mapped': valueField(columns, 'mapped'),
-    'mappedFrom': valueField(columns, 'mappedFrom')
+        return valueExists(c.removed);
+      })[0]) || {}).removedValue || 'true'
   };
   if (mapKeyFields) {
     returnValue = mapFields(returnValue, returnValue.mapFields);
