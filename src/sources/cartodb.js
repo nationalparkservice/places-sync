@@ -6,45 +6,64 @@ var Immutable = require('immutable');
 var tools = {
   'iterateTasks': require('../tools/iterateTasks'),
   'simplifyArray': require('../tools/simplifyArray'),
-  'setProperty': require('../tools/setProperty'),
+  'mergeObjects': require('../tools/mergeObjects'),
   'dummyPromise': require('../tools/dummyPromise')
 };
 var CreateQueries = require('./helpers/createQueries');
 var columnsFromConfig = require('./helpers/columnsFromConfig');
 var columnsToKeys = require('./helpers/columnsToKeys');
-var mapColumns = require('./helpers/mapColumns');
 var databases = require('../databases');
 var getSqliteType = require('./helpers/getSqliteTypeFromPg');
+var mapFields = require('./helpers/mapFields');
+var postgresDateTransform = require('./helpers/postgresDateTransform');
+var addTransforms = require('./helpers/addTransforms');
 
-var QuerySource = function (connection, options, account, tableName, columns) {
+var QuerySource = function (connection, options, account, tableName, columns, fields, baseWhereClause) {
   return function (type, whereObj, returnColumns) {
-    returnColumns = returnColumns || columns;
-    var unmappedColumns = mapColumns.from(columns, unmappedColumns);
-    var keys = columnsToKeys(unmappedColumns);
-    var createQueries = new CreateQueries(unmappedColumns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
-    // TODO createQueries should take a schema
-    return connection.query.apply(this, createQueries(type, whereObj, returnColumns, tableName).concat([false, unmappedColumns]));
+    // Allow the calling function to specify what columns get returned
+    var newWhereObj = mapFields.data.from([tools.mergeObjects(baseWhereClause || {}, whereObj)], fields.mapped)[0];
+    returnColumns = mapFields.columns.from(returnColumns || columns, fields.mapped);
+
+    // Add the transformations
+    returnColumns = addTransforms(options, returnColumns);
+
+    // Determine the primary Keys
+    var keys = columnsToKeys(returnColumns);
+
+    // Create the query object that we use to generate the queries
+    var newColumns = mapFields.columns.from(columns, fields.mapped);
+    var createQueries = new CreateQueries(newColumns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
+
+    // Create the query that we will run on the server
+    var cartoDbQuery = createQueries(type, newWhereObj, returnColumns, tableName);
+
+    // Run the query
+    return connection.query(cartoDbQuery[0], cartoDbQuery[1], false, columns)
+      .then(function (result) {
+        return mapFields.data.to(result, fields.mapped);
+      });
   };
 };
 
-var WriteFn = function (connection, options, account, tableName, columns) {
-  var unmappedColumns = mapColumns.from(columns, unmappedColumns);
-  var keys = columnsToKeys(unmappedColumns);
-  var createQueries = new CreateQueries(unmappedColumns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
+var WriteFn = function (connection, options, account, tableName, columns, fields) {
+  // Parse out the original columns from the  columns so we can translate to the source Schema
+  var newColumns = mapFields.columns.from(columns, fields.mapped);
 
-  // TODO: put this somewhere better
-  if (options && options.transforms) {
-    for (var transform in options.transforms) {
-      var columnIdx = tools.simplifyArray(unmappedColumns).indexOf(transform);
-      if (columnIdx > -1) {
-        unmappedColumns[columnIdx].transformed = true;
-      }
-    }
-  }
+  // Determine the primary keys
+  var keys = columnsToKeys(newColumns);
+
+  // Add the transformations
+  newColumns = addTransforms(options, newColumns);
+
+  // Create the query object that we use to generate the queries
+  var createQueries = new CreateQueries(newColumns, keys.primaryKeys, keys.lastUpdatedField, keys.removedField, options);
 
   return function (updated, removed) {
     var tasks = [];
     var removeTasks = [];
+
+    // Remove the updates that have really been removed
+    // TODO move this elsewhere
     if (keys.removedFieldValue !== undefined) {
       removed.forEach(function (row) {
         row[keys.removedField] = keys.removedFieldValue;
@@ -52,6 +71,11 @@ var WriteFn = function (connection, options, account, tableName, columns) {
       });
       removed = [];
     }
+
+    // We need to map the columns back over
+    updated = mapFields.data.from(updated, fields.mapped);
+    removed = mapFields.data.from(removed, fields.mapped);
+
     updated.forEach(function (updatedRow, i) {
       tasks.push({
         'name': 'Remove / Write Update Row ' + i + JSON.stringify(updatedRow),
@@ -60,11 +84,11 @@ var WriteFn = function (connection, options, account, tableName, columns) {
           [{
             'name': 'Remove',
             'task': connection.query,
-            'params': createQueries('remove', updatedRow, keys.primaryKeys, tableName).concat([false, unmappedColumns])
+            'params': createQueries('remove', updatedRow, keys.primaryKeys, tableName).concat([false, newColumns])
           }, {
             'name': 'Write',
             'task': connection.query,
-            'params': [createQueries('insert', undefined, unmappedColumns, tableName)[0], updatedRow, false, unmappedColumns]
+            'params': [createQueries('insert', undefined, newColumns, tableName)[0], updatedRow, false, newColumns]
           }],
           'update cartodb db', true
         ]
@@ -74,7 +98,7 @@ var WriteFn = function (connection, options, account, tableName, columns) {
       removeTasks.push({
         'name': 'Remove Removed Row ' + i,
         'task': connection.query,
-        'params': createQueries('remove', removedRow, keys.primaryKeys, tableName).concat([false, unmappedColumns])
+        'params': createQueries('remove', removedRow, keys.primaryKeys, tableName).concat([false, newColumns])
       });
     });
 
@@ -93,10 +117,10 @@ var WriteFn = function (connection, options, account, tableName, columns) {
   };
 };
 
-var readCartoDB = function (connection, options, config) {
+var readCartoDB = function (connection, options, config, sourceFields) {
   var queryObj = {
     'tableSchema': config.account,
-    'tableName': config.tableName
+    'tableName': config.table
   };
   var queries = [];
 
@@ -104,22 +128,22 @@ var readCartoDB = function (connection, options, config) {
   var query = '';
   query += 'SELECT';
   query += '  cdb_columnnames AS "name",';
-  query += "  cdb_columntype('" + config.account + '.' + config.tableName + "',";
+  query += "  cdb_columntype('" + queryObj.tableSchema + '.' + queryObj.tableName + "',";
   query += '  cdb_columnnames) AS "pgtype"';
   query += 'FROM';
   query += "  cdb_columnnames('";
-  query += config.account + '.' + config.tableName + "');";
+  query += queryObj.tableSchema + '.' + queryObj.tableName + "');";
   queries.push(query);
 
   // Since the user defined fields aren't available in columnNames, we run this query to get them
-  queries.push('SELECT * FROM "' + config.account + '"."' + config.tableName + '" LIMIT 0;');
+  queries.push('SELECT * FROM "' + queryObj.tableSchema + '"."' + queryObj.tableName + '" LIMIT 0;');
 
   // To get if fields are nullable, and other info, we load this too
   query = '';
   query += 'SELECT ';
   query += '"column_name", "column_default", "is_nullable", "ordinal_position", "data_type" ';
   query += 'FROM "information_schema"."columns" ';
-  query += 'WHERE "table_schema" = \'' + config.account + '\' AND "table_name" = \'' + config.tableName + "' ";
+  query += 'WHERE "table_schema" = \'' + queryObj.tableSchema + '\' AND "table_name" = \'' + queryObj.tableName + "' ";
   query += 'ORDER BY "ordinal_position";';
   queries.push(query);
 
@@ -127,7 +151,7 @@ var readCartoDB = function (connection, options, config) {
   query = '';
   query += 'SELECT distinct ';
   query += 'unnest("index_keys") AS "name" ';
-  query += "FROM CDB_TableIndexes('" + config.account + '.' + config.tableName + "') ";
+  query += "FROM CDB_TableIndexes('" + queryObj.tableSchema + '.' + queryObj.tableName + "') ";
   query += 'WHERE index_primary = true;';
   queries.push(query);
 
@@ -136,7 +160,7 @@ var readCartoDB = function (connection, options, config) {
       return connection.query(q, queryObj);
     })).then(function (result) {
       var columnNames = result[0] || [];
-      var fields = result[1].fields || {};
+      var resultFields = result[1].fields || {};
       var columnInfoSchema = result[2] || [];
       var pkeys = tools.simplifyArray(result[3]);
 
@@ -144,8 +168,8 @@ var readCartoDB = function (connection, options, config) {
       var columns = columnNames.map(function (column) {
         // Get types for when cartodb says "USER-DEFINED"
         var type = column.pgtype;
-        if (type === 'USER-DEFINED' && fields[column.name] && fields[column.name].type) {
-          type = fields[column.name].type;
+        if (type === 'USER-DEFINED' && resultFields[column.name] && resultFields[column.name].type) {
+          type = resultFields[column.name].type;
         }
 
         // Get the row that matches from the infoSchema
@@ -163,7 +187,7 @@ var readCartoDB = function (connection, options, config) {
 
       fulfill({
         'data': undefined,
-        'columns': columns
+        'columns': mapFields.columns.to(columns, sourceFields.mapped)
       });
     }).catch(reject);
   });
@@ -173,15 +197,12 @@ module.exports = function (sourceConfig, options) {
   return new Promise(function (fulfill, reject) {
     // Clean up the connectionConfig, and set the defaults
     var connectionConfig = new Immutable.Map(sourceConfig.connection);
-    var requirements = ['account', 'apiKey', 'tableName'];
+    var requirements = ['account', 'apiKey', 'table'];
     requirements.forEach(function (requirement) {
       if (typeof connectionConfig.get(requirement) !== 'string') {
         throw new Error(requirement + ' must be defined for a CartoDB connection');
       }
     });
-    options = options || {};
-    options.transforms = options.transforms || {};
-
     // Define the taskList
     var tasks = [{
       'name': 'createDbConnection',
@@ -195,26 +216,28 @@ module.exports = function (sourceConfig, options) {
       'name': 'convertFromTable',
       'description': 'Takes the source data and creates an update/remove cartodb table in memory for it',
       'task': readCartoDB,
-      'params': ['{{createDbConnection}}', options, connectionConfig.toObject()]
+      'params': ['{{createDbConnection}}', options, connectionConfig.toObject(), sourceConfig.fields]
     }];
-    tools.iterateTasks(tasks, 'cartodb').then(function (r) {
-      var columns = columnsFromConfig(r.convertFromTable.columns, sourceConfig.fields);
-      var mappedColumns = mapColumns.to(columns);
-      var keys = columnsToKeys(columns);
-      mappedColumns.forEach(function (column) {
+    tools.iterateTasks(tasks, 'cartodb').then(function (result) {
+      var columns = columnsFromConfig(result.convertFromTable.columns, sourceConfig.fields);
+
+      // Add transforms for the timestamp with time zone field
+      sourceConfig.fields.transforms = sourceConfig.fields.transforms || {};
+      columns.forEach(function (column) {
         if (column.type === 'timestamp with time zone') {
-          options.transforms[column.name] = options.transforms[column.name] || {
-            'from': ['(EXTRACT(EPOCH FROM ', ')) * 1000'],
-            'to': ["(TIMESTAMP 'epoch' + ", " * INTERVAL '1 millisecond') AT TIME ZONE 'GMT'"]
-          };
+          sourceConfig.fields.transforms[column.name] = sourceConfig.fields.transforms[column.name] || postgresDateTransform;
         }
       });
 
+      // Copy these transforms into the options (might need to rethink this)
+      options = options || {};
+      options.transforms = sourceConfig.fields.transforms;
+
       fulfill({
-        'data': r[1].data,
-        'columns': mappedColumns,
-        'writeFn': new WriteFn(r[0], options, connectionConfig.get('account'), connectionConfig.get('tableName'), mappedColumns),
-        'querySource': new QuerySource(r[0], options, connectionConfig.get('account'), connectionConfig.get('tableName'), mappedColumns)
+        'data': result[1].data,
+        'columns': columns,
+        'writeFn': new WriteFn(result[0], options, connectionConfig.get('account'), connectionConfig.get('table'), columns, sourceConfig.fields),
+        'querySource': new QuerySource(result[0], options, connectionConfig.get('account'), connectionConfig.get('table'), columns, sourceConfig.fields, sourceConfig.where)
       });
     }).catch(reject);
   });
