@@ -23,7 +23,13 @@ var postgresConfig = {
     'lastUpdated': 'last_update',
     'removed': undefined,
     'removedValue': undefined,
-    'forced': undefined
+    'forced': undefined,
+    'mapped': {
+      'name': 'display_name'
+    }
+  },
+  'where': {
+    'name': ['good', 'ok']
   }
 };
 var cartodbConfig = {
@@ -33,7 +39,7 @@ var cartodbConfig = {
     'processName': processName,
     'account': 'nps',
     'apiKey': 'http://docs.cartodb.com/cartodb-editor/your-account/#api-key',
-    'tableName': 'sync_test'
+    'table': 'sync_test'
   },
   'fields': {
     'primaryKey': 'key',
@@ -46,6 +52,9 @@ var cartodbConfig = {
       'the_geom': null,
       'the_geom_webmercator': null
     }
+  },
+  'where': {
+    'display_name': ['good', 'ok']
   }
 };
 
