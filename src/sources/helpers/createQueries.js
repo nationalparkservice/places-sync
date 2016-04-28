@@ -8,6 +8,7 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
     quotes[0] = tableName ? quotes[0] + tableName + quotes[1] + '.' + quotes[0] : quotes[0];
     var newColumns = tools.simplifyArray(columns).map(function (column) {
       var newColumn = tools.surroundValues(column, quotes[0], quotes[1]);
+
       if (options && options.transforms && options.transforms[column] && options.transforms[column][toFrom]) {
         return tools.surroundValues.apply(this, [newColumn].concat(options.transforms[column][toFrom])) + (toFrom === 'from' ? (' AS "' + column + '"') : '');
       } else {
@@ -48,6 +49,13 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
     keys.forEach(function (pk) {
       whereObj[pk] = valuesObj[pk] || defaultWhere;
     });
+
+    // Add any other requests
+    for (var idx in valuesObj) {
+      whereObj[idx] = whereObj[idx] || valuesObj[idx] || defaultWhere;
+    }
+
+
 
     if (removedField) {
       whereObj[removedField] = {
@@ -125,20 +133,19 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
       return 'DELETE FROM "' + tableName + '"';
     }
   };
-  return function (queryName, values, keys, tableName) {
+  return function (queryName, origWhereObj, requestedKeys, tableName) {
     var where;
-    if (values) {
+    if (origWhereObj) {
       if (queryName === 'selectSince') {
         // Special case for the last updated which requires a great than
-        where = tools.createWhereClause(tools.setProperty(lastUpdatedField, {
-          '$gt': values[lastUpdatedField]
-        }, values || {}), tools.simplifyArray(columns), options);
-        console.log('where', where);
+        var newWhereObj = tools.setProperty(lastUpdatedField, {'$gt': origWhereObj[lastUpdatedField]}, origWhereObj);
+        where = tools.createWhereClause(newWhereObj, tools.simplifyArray(columns), options);
       } else {
-        where = createWhereObj(tools.simplifyArray(keys || queryKey), values, options);
+        where = createWhereObj(tools.simplifyArray(requestedKeys || queryKey), origWhereObj, options);
       }
     }
-    var query = queries[queryName](tableName, tools.simplifyArray(keys || queryKey)) + (where ? ' WHERE ' + where[0] : ';');
+
+    var query = queries[queryName](tableName, tools.simplifyArray(requestedKeys || queryKey)) + (where ? ' WHERE ' + where[0] : ';');
 
     return [query, where && where[1]];
   };
