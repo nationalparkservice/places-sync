@@ -27,14 +27,14 @@
   "keywords": ["nps", "postgres", "cartodb"],
   "author": "Jim McAndrew <james_mcandrew@partner.nps.gov>",
   "license": "Public Domain",
-  "main": "app.js",
+  "main": "index.js",
   "name": "places-sync",
   "repository": {
     "type": "git",
     "url": "http://github.com/nationalparkservice/places-sync"
   },
   "scripts": {
-    "start": "node app",
+    "start": "node index",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "version": "0.0.1"
