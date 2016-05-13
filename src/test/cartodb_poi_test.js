@@ -25,7 +25,7 @@ var postgresConfig = {
     'removedValue': undefined,
     'forced': undefined
   },
-  'where': {
+  'filter': {
     'unit_code': ['cure', 'blca', 'CURE', 'BLCA']
   }
 };
@@ -48,7 +48,7 @@ var cartodbConfig = {
       'the_geom_webmercator': null
     }
   },
-  'where': {
+  'filter': {
     'unit_code': ['cure', 'blca', 'CURE', 'BLCA']
   }
 };
