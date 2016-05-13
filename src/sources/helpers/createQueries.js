@@ -33,9 +33,9 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
   };
 
   var createWhereObj = function (keys, values, options) {
-    console.log('keys', keys, 'values', values);
+    // console.log('keys', keys, 'values', values);
     var valuesObj = arraysToObj(keys, values);
-    console.log(valuesObj)
+    // console.log(valuesObj)
     var whereObj = {};
 
     // If nothing is specified for a value, the default is (null or not null)
