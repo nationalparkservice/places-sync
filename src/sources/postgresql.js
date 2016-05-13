@@ -71,7 +71,7 @@ var WriteFn = function (connection, options, tableName, columns, fields) {
 
     updated.forEach(function (updatedRow, i) {
       tasks.push({
-        'name': 'Remove / Write Update Row ' + i + JSON.stringify(updatedRow),
+        'name': 'Remove / Write Update Row ', //+ i + JSON.stringify(updatedRow),
         'task': tools.iterateTasks,
         'params': [
           [{
@@ -129,7 +129,7 @@ var readPostgresql = function (connection, options, tableName, tableSchema, sour
           'type': rawColumn.data_type,
           'sqliteType': getSqliteType(rawColumn.data_type),
           'primaryKey': pkeys.indexOf(rawColumn.name) > -1, // http://stackoverflow.com/questions/1214576/how-do-i-get-the-primary-keys-of-a-table-from-postgres-via-plpgsql
-          'defaultValue': typeof rawColumn.column_default === 'object' ? undefined : rawColumn.column_default,
+          // 'defaultValue': typeof rawColumn.column_default === 'object' ? undefined : rawColumn.column_default, // TODO: Maybe get these working later? not sure if we need them
           'notNull': rawColumn.is_nullable === 'NO',
           'columnId': rawColumn.ordinal_position
         };
