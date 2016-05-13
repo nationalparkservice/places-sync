@@ -46,29 +46,47 @@ var parameterizeQuery = function (query, params, columns) {
   return fandlebars(query, params);
 };
 
+var sendRequest = function (requestPath, cleanedSql, returnRaw, apiKey, attempts) {
+  var maxAttempts = 5;
+  return new Promise(function (fulfill, reject) {
+    superagent.post(requestPath)
+      .set('Content-Type', 'application/json')
+      .set('Accept', 'application/json')
+      .send({
+        'q': cleanedSql,
+        'api_key': apiKey // connectionConfig.connection.apiKey
+      })
+      .end(function (err, response) {
+        if (err || response.error) {
+          if (response.error && response.error.text && response.error.text.match('query_wait_timeout') && attempts <= maxAttempts) {
+            // Time out error, so we can try again with a wait
+            console.log('Error, so trying again, on attempt:', attempts, 'timeout', 1000 + (attempts * 500));
+            setTimeout(function () {
+              sendRequest(requestPath, cleanedSql, returnRaw, apiKey, attempts + 1)
+                .then(fulfill)
+                .catch(reject);
+            }, 1000 + (attempts * 500));
+          } else {
+            reject(new Error(JSON.stringify(err || response, null, 2)));
+          }
+        } else {
+          fulfill(returnRaw ? response : format(response));
+        }
+      });
+  });
+};
+
 module.exports = function (connectionConfig) {
   var returnObject = {
     query: function (query, params, returnRaw, columns) {
       return new Promise(function (fulfill, reject) {
-        // var cleanedSql = fandlebars(query, params);
         var cleanedSql = parameterizeQuery(query, params, columns);
         var requestPath = 'https://' + connectionConfig.connection.account + '.cartodb.com/api/v2/sql';
-        
+
         if (cleanedSql.length > 5) {
-          superagent.post(requestPath)
-            .set('Content-Type', 'application/json')
-            .set('Accept', 'application/json')
-            .send({
-              'q': cleanedSql,
-              'api_key': connectionConfig.connection.apiKey
-            })
-            .end(function (err, response) {
-              if (err || response.error) {
-                reject(new Error(JSON.stringify(err || response, null, 2)));
-              } else {
-                fulfill(returnRaw ? response : format(response));
-              }
-            });
+          sendRequest(requestPath, cleanedSql, returnRaw, connectionConfig.connection.apiKey, 0)
+            .then(fulfill)
+            .catch(reject);
         } else {
           reject('Query Too Short: (' + cleanedSql.length + ') chars');
         }
