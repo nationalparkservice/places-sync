@@ -156,10 +156,10 @@ var runQuery = function (sourceUrl, queryObj, primaryKeys) {
   });
 };
 
-var QuerySource = function (connectionString, sourceInfo, baseWhereClause, columns, fields) {
+var QuerySource = function (connectionString, sourceInfo, baseFilter, columns, fields) {
   return function (type, whereObj, returnColumns) {
     // If there's a where object already defined in the source, we need to merge them
-    var newWhereObj = mapFields.data.from([tools.mergeObjects(baseWhereClause || {}, whereObj)],fields.mapped)[0];
+    var newWhereObj = mapFields.data.from([tools.mergeObjects(baseFilter || {}, whereObj)],fields.mapped)[0];
 
     // Define the columns we're going to return to the user
     returnColumns = mapFields.columns.from(returnColumns || columns, fields.mapped);
@@ -321,7 +321,7 @@ module.exports = function (sourceConfig) {
         'columns': columns,
         'writeFn': undefined, // TODO allow writing
         'sourceInfo': sourceInfo,
-        'querySource': new QuerySource(connectionConfig.toJS(), sourceInfo, sourceConfig.where, columns, sourceConfig.fields)
+        'querySource': new QuerySource(connectionConfig.toJS(), sourceInfo, sourceConfig.filter, columns, sourceConfig.fields)
       });
     });
   });
