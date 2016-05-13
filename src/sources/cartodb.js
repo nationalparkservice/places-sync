@@ -78,7 +78,7 @@ var WriteFn = function (connection, options, account, tableName, columns, fields
 
     updated.forEach(function (updatedRow, i) {
       tasks.push({
-        'name': 'Remove / Write Update Row ' + i + JSON.stringify(updatedRow),
+        'name': 'Remove / Write Update Row ', // + i + JSON.stringify(updatedRow),
         'task': tools.iterateTasks,
         'params': [
           [{
