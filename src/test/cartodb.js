@@ -28,7 +28,7 @@ var postgresConfig = {
       'name': 'display_name'
     }
   },
-  'where': {
+  'filter': {
     'name': ['good', 'ok']
   }
 };
@@ -53,7 +53,7 @@ var cartodbConfig = {
       'the_geom_webmercator': null
     }
   },
-  'where': {
+  'filter': {
     'display_name': ['good', 'ok']
   }
 };
