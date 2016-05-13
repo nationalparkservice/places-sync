@@ -18,10 +18,10 @@ var mapFields = require('./helpers/mapFields');
 var postgresDateTransform = require('./helpers/postgresDateTransform');
 var addTransforms = require('./helpers/addTransforms');
 
-var QuerySource = function (connection, options, account, tableName, columns, fields, baseWhereClause) {
+var QuerySource = function (connection, options, account, tableName, columns, fields, baseFilter) {
   return function (type, whereObj, returnColumns) {
     // Allow the calling function to specify what columns get returned
-    var newWhereObj = mapFields.data.from([tools.mergeObjects(baseWhereClause || {}, whereObj)], fields.mapped)[0];
+    var newWhereObj = mapFields.data.from([tools.mergeObjects(baseFilter || {}, whereObj)], fields.mapped)[0];
     returnColumns = mapFields.columns.from(returnColumns || columns, fields.mapped);
 
     // Add the transformations
@@ -237,7 +237,7 @@ module.exports = function (sourceConfig, options) {
         'data': result[1].data,
         'columns': columns,
         'writeFn': new WriteFn(result[0], options, connectionConfig.get('account'), connectionConfig.get('table'), columns, sourceConfig.fields),
-        'querySource': new QuerySource(result[0], options, connectionConfig.get('account'), connectionConfig.get('table'), columns, sourceConfig.fields, sourceConfig.where)
+        'querySource': new QuerySource(result[0], options, connectionConfig.get('account'), connectionConfig.get('table'), columns, sourceConfig.fields, sourceConfig.filter)
       });
     }).catch(reject);
   });
