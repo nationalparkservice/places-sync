@@ -33,7 +33,9 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
   };
 
   var createWhereObj = function (keys, values, options) {
+    console.log('keys', keys, 'values', values);
     var valuesObj = arraysToObj(keys, values);
+    console.log(valuesObj)
     var whereObj = {};
 
     // If nothing is specified for a value, the default is (null or not null)
@@ -51,11 +53,10 @@ module.exports = function (columns, primaryKey, lastUpdatedField, removedField, 
     });
 
     // Add any other requests
-    for (var idx in valuesObj) {
-      whereObj[idx] = whereObj[idx] || valuesObj[idx] || defaultWhere;
-    }
-
-
+    // This is only here for the where clause stuff, which is poorly supported
+    // for (var idx in valuesObj) {
+      // whereObj[idx] = whereObj[idx] || valuesObj[idx] || defaultWhere;
+    // }
 
     if (removedField) {
       whereObj[removedField] = {
