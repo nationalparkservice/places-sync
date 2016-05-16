@@ -1,22 +1,9 @@
-var Promise = require('bluebird');
 var tools = require('jm-tools');
 var sources = require('places-sync-sources');
-
-var Mockingbird = function (callback) {
-  return (callback && typeof callback === 'function') ? function (f) {
-    f(function (res) {
-      callback(null, res);
-    },
-      function (err) {
-        callback(err);
-      }
-    );
-  } : Promise;
-};
+var Mockingbird = require('./src/mockingbird');
 
 module.exports = function (masterCache, sourceA, sourceB, twoWay, callback) {
   return new (Mockingbird(callback))(function (fulfill, reject) {
-
     var setUpTasks = [{
       'name': 'masterCache',
       'description': 'Loads the source for the master sqlite database, gets info for it, and does not load data to cache',
