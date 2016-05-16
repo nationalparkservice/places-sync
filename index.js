@@ -1,6 +1,6 @@
 var Promise = require('bluebird');
-var tools = require('./src/tools');
-var sources = require('./src/sources');
+var tools = require('jm-tools');
+var sources = require('places-sync-sources');
 
 var Mockingbird = function (callback) {
   return (callback && typeof callback === 'function') ? function (f) {
