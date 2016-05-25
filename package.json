@@ -12,6 +12,7 @@
   "dependencies": {
     "bluebird": "^3.3.5",
     "jm-tools": "git+https://github.com/jimmyrocks/jm-tools",
+    "places-sync-sources": "git+https://github.com/nationalparkservice/places-sync-sources",
     "superagent": "^1.8.3"
   },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",
