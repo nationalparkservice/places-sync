@@ -10,10 +10,9 @@
     }
   ],
   "dependencies": {
-    "bluebird": "^3.3.5",
+    "bluebird": "3.4.0",
     "jm-tools": "git+https://github.com/jimmyrocks/jm-tools",
-    "places-sync-sources": "git+https://github.com/nationalparkservice/places-sync-sources",
-    "superagent": "^1.8.3"
+    "places-sync-sources": "git+https://github.com/nationalparkservice/places-sync-sources"
   },
   "description": "A node app that synchronizes data from multiple sources to the Places database.",
   "keywords": [
