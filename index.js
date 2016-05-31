@@ -1,9 +1,9 @@
-var tools = require('jm-tools');
+var Promise = require('bluebird');
 var sources = require('places-sync-sources');
-var Mockingbird = require('./src/mockingbird');
+var tools = require('jm-tools');
 
-module.exports = function (masterCache, sourceA, sourceB, twoWay, callback) {
-  return new (Mockingbird(callback))(function (fulfill, reject) {
+module.exports = function (masterCache, sourceA, sourceB, twoWay) {
+  return new Promise(function (resolve, reject) {
     var setUpTasks = [{
       'name': 'masterCache',
       'description': 'Loads the source for the master sqlite database, gets info for it, and does not load data to cache',
@@ -72,7 +72,7 @@ module.exports = function (masterCache, sourceA, sourceB, twoWay, callback) {
     taskList = taskList.concat(saveSourceBTasks);
 
     tools.iterateTasks(taskList).then(function (results) {
-      fulfill(results);
+      resolve(results);
     }).catch(function (e) {
       if (e === undefined) {
         e = new Error('undefined error');
