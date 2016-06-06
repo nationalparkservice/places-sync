@@ -11,14 +11,24 @@ module.exports = function (masterCache, sourceA, sourceB, options) {
       'params': [masterCache]
     }, {
       'name': 'sourceAConnection',
-      'description': 'Loads the source for sourceA table a, gets info for it, and loads data to cache',
+      'description': 'Loads the source for sourceA, gets info for it, and loads data to cache',
       'task': sources,
       'params': [sourceA, '{{masterCache}}']
+    }, {
+      'name': 'sourceBWithAColumns',
+      'description': 'Adds the columns from sourceA connection to sourceB connection if it is required',
+      'task': function (columnSource, columnDest) {
+        if (options.copyColumns && columnSource &&  columnSource.get && columnSource.get.columns) {
+          columnDest.columns = columnSource.get.columns();
+        }
+        return source;
+      },
+      'params': ['{{sourceAConnection}}', sourceB]
     }, {
       'name': 'sourceBConnection',
       'description': 'Loads the source for sourceB, gets info for it, and loads data to cache',
       'task': sources,
-      'params': [sourceB, '{{masterCache}}']
+      'params': ['{{sourceBWithAColumns}}', '{{masterCache}}']
     }, {
       'name': 'updatesFromSourceA',
       'description': 'Gets an object containing the records that were updated and the records that were removed from sourceA since the last write to sourceB in the masterCache',
