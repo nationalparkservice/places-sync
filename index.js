@@ -2,7 +2,7 @@ var Promise = require('bluebird');
 var sources = require('places-sync-sources');
 var tools = require('jm-tools');
 
-module.exports = function (masterCache, sourceA, sourceB, twoWay) {
+module.exports = function (masterCache, sourceA, sourceB, options) {
   return new Promise(function (resolve, reject) {
     var setUpTasks = [{
       'name': 'masterCache',
@@ -66,7 +66,7 @@ module.exports = function (masterCache, sourceA, sourceB, twoWay) {
     }];
 
     var taskList = setUpTasks;
-    if (twoWay) {
+    if (options && options.twoWay) {
       taskList = taskList.concat(twoWayTasks);
     }
     taskList = taskList.concat(saveSourceBTasks);
