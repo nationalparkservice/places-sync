@@ -2,7 +2,7 @@ var Promise = require('bluebird');
 var sources = require('places-sync-sources');
 var tools = require('jm-tools');
 
-module.exports = function (masterCache, sourceA, sourceB, twoWay) {
+module.exports = function (masterCache, sourceA, sourceB, options) {
   return new Promise(function (resolve, reject) {
     var setUpTasks = [{
       'name': 'masterCache',
@@ -11,14 +11,29 @@ module.exports = function (masterCache, sourceA, sourceB, twoWay) {
       'params': [masterCache]
     }, {
       'name': 'sourceAConnection',
-      'description': 'Loads the source for sourceA table a, gets info for it, and loads data to cache',
+      'description': 'Loads the source for sourceA, gets info for it, and loads data to cache',
       'task': sources,
       'params': [sourceA, '{{masterCache}}']
+    }, {
+      'name': 'sourceBWithAOptions',
+      'description': 'Adds the columns from sourceA connection to sourceB connection if it is required',
+      'task': function (optionsSource, optionsDest) {
+        if (options && options.copy) {
+          if (options.copy.columns && optionsSource &&  optionsSource.get && optionsSource.get.columns) {
+            optionsDest.columns = optionsSource.get.columns();
+          }
+          if (options.copy.translation && sourceA.translation) {
+            optionsDest.translation = sourceA.translation;
+          }
+        }
+        return optionsDest;
+      },
+      'params': ['{{sourceAConnection}}', sourceB]
     }, {
       'name': 'sourceBConnection',
       'description': 'Loads the source for sourceB, gets info for it, and loads data to cache',
       'task': sources,
-      'params': [sourceB, '{{masterCache}}']
+      'params': ['{{sourceBWithAOptions}}', '{{masterCache}}']
     }, {
       'name': 'updatesFromSourceA',
       'description': 'Gets an object containing the records that were updated and the records that were removed from sourceA since the last write to sourceB in the masterCache',
@@ -66,7 +81,7 @@ module.exports = function (masterCache, sourceA, sourceB, twoWay) {
     }];
 
     var taskList = setUpTasks;
-    if (twoWay) {
+    if (options && options.twoWay) {
       taskList = taskList.concat(twoWayTasks);
     }
     taskList = taskList.concat(saveSourceBTasks);
