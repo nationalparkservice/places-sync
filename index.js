@@ -19,11 +19,14 @@ module.exports = function (masterCache, sourceA, sourceB, options) {
       'description': 'Adds the columns from sourceA connection to sourceB connection if it is required',
       'task': function (optionsSource, optionsDest) {
         if (options && options.copy) {
-          if (options.copy.columns && optionsSource &&  optionsSource.get && optionsSource.get.columns) {
+          if (options.copy.columns && optionsSource && optionsSource.get && optionsSource.get.columns) {
             optionsDest.columns = optionsSource.get.columns();
           }
           if (options.copy.translation && sourceA.translation) {
             optionsDest.translation = sourceA.translation;
+          }
+          if (options.copy.translation && sourceA.fields) {
+            optionsDest.fields = sourceA.fields;
           }
         }
         return optionsDest;
