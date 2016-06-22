@@ -65,4 +65,4 @@ A node app that synchronizes data from multiple sources to the Places database.
 
 ### The "[Close](https://github.com/nationalparkservice/places-sync/blob/7ed155b81564176e0df51d3bf1fc2ec2ca011354/src/sources/helpers/createActions.js#L199)" Function
   * Some databases and files require the connection to be closed, this step will close that connection
-  * This step is required for all sources, as it will clear source object out of memory
+  * This step is required for all sources, and it will clear source object out of memory
