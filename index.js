@@ -25,7 +25,7 @@ module.exports = function (masterCache, sourceA, sourceB, options) {
           if (options.copy.translation && sourceA.translation) {
             optionsDest.translation = sourceA.translation;
           }
-          if (options.copy.translation && sourceA.fields) {
+          if (options.copy.fields && sourceA.fields) {
             optionsDest.fields = sourceA.fields;
           }
         }
