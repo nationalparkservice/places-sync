@@ -10,7 +10,7 @@
     }
   ],
   "dependencies": {
-    "bluebird": "3.4.1",
+    "bluebird": "3.5.1",
     "jm-tools": "git+https://github.com/jimmyrocks/jm-tools",
     "places-sync-sources": "git+https://github.com/nationalparkservice/places-sync-sources"
   },
